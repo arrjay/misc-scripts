@@ -1,0 +1,6 @@
+#! /usr/bin/perl  -wl
+$tt = `kstat -p -s boot_time | awk '{print \$2}'`;
+($year, $month, $day, $hour, $minute, $second)=(localtime $tt)[5,4,3,2,1,0];
+$year += 1900;
+$month += 1;
+printf "last boot at %4d-%02d-%02d %02d:%02d:%02d\n", $year, $month, $day, $hour, $minute, $second;

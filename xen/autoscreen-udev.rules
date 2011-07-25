@@ -1,0 +1,1 @@
+SUBSYSTEM=="xen-backend", KERNEL=="console*", RUN+="/etc/udev/autoscreen.sh"

@@ -154,6 +154,7 @@ if ($os eq 'FreeBSD') {
       $cpu_type = 'PowerPC '.$cpu;
     }
   }
+  close(CPUINFO);
 }
       
 print " [CPU]:-[".$cpu_num."-".$cpu_type.", ".$cpu_speed."MHz, ".$cpu_L2_cache,
@@ -238,8 +239,8 @@ my @df = `df -Phl`;
 my @mount = `mount`;
 my %drive_infos;
 my @drives;
-my %opt_excludes = ('devfs'=>1, 'nullfs'=>1, 'fdescfs'=>1, 'procfs'=>1);
-my %point_excludes = ('/dev/shm'=>1);
+my %opt_excludes = ('devfs'=>1, 'nullfs'=>1, 'fdescfs'=>1, 'procfs'=>1, 'tmpfs'=>1);
+my %point_excludes = ('/dev/shm'=>1, '/dev'=>1, '/run'=>1, '/media'=>1, '/sys/fs/cgroup'=>1);
 my $total_used_k = 0;
 my $total_k = 0;
 foreach (@mount) {
@@ -257,15 +258,20 @@ shift(@df);
 foreach (@df) {
 	chomp;
 	my @xsplit = split(/ +/);
+	# HACK
+	if ($xsplit[0] eq 'rootfs') {
+		next;
+	}
 	unless (exists($point_excludes{$xsplit[5]})) {
 		push(@drives,$xsplit[5]);
+		# chop /dev/ off
 		@drive_infos{$xsplit[5]} = [substr($xsplit[0], 5), 
 			$xsplit[1], $xsplit[2]];
 		my @kd = `df -Pk $xsplit[5]`;
 		my @ksplit = split(/ +/,$kd[1]);
 		shift(@ksplit);
-		$total_used_k = $total_used_k + $ksplit[2];
-		$total_k = $total_k + $ksplit[1];
+		$total_used_k = $total_used_k + $ksplit[1];
+		$total_k = $total_k + $ksplit[2];
 	}
 }
 

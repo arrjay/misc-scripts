@@ -1,0 +1,35 @@
+#!/bin/sh
+
+TMPFILE=`mktemp -p /tmp`
+metaflac --list --block-type=VORBIS_COMMENT "${1}" > $TMPFILE
+for TAG in TITLE ARTIST ALBUM DISCNUMBER DATE TRACKNUMBER TRACKTOTAL COMPILATION; do
+	eval $TAG=\`grep ${TAG}= $TMPFILE\|sed s/.\*${TAG}=//\`
+done
+rm $TMPFILE
+
+PICFILE=`mktemp -p /tmp`
+metaflac --export-picture-to=${PICFILE} "${1}"
+
+PICDATA=`mktemp -p /tmp`
+metaflac --list --block-type=PICTURE "${1}" > $PICDATA
+PICTYPE=`grep 'MIME type: ' $PICDATA|sed s/.*'MIME type: '//`
+PICDESC=`grep 'description: ' $PICDATA|sed s/.*'description: '//`
+rm $PICDATA
+
+WAVFILE=`mktemp -p /tmp`
+flac -d "${1}" -s -f -o ${WAVFILE}
+
+OUTFILE=`echo ${1}|sed s/flac/mp3/i`
+
+lame -V2 --vbr-new -b 112 -B 320 -S --add-id3v2 --id3v2-only --tt "${TITLE}" --ta "${ARTIST}" --tl "${ALBUM}" --ty "${DATE}" --tn ${TRACKNUMBER}/${TRACKTOTAL} $WAVFILE "${OUTFILE}"
+
+rm $WAVFILE
+
+mp3addpic $PICFILE "${PICTYPE}" "${OUTFILE}"
+rm $PICFILE
+
+mp3setdisc "$DISCNUMBER" "${OUTFILE}"
+
+if [  ${COMPILATION} == "1" ]; then
+	mp3setcomp "${OUTFILE}"
+fi

@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+
+use MP3::Tag;
+
+$picfile = $ARGV[0];
+$imgtype = $ARGV[1];
+$mp3file = $ARGV[2];
+
+my $mp3 = MP3::Tag->new($mp3file);
+
+$mp3->get_tags();
+$id3v2 = $mp3->{ID3v2};
+
+my $image = do { open my $rawfile, '<', $picfile;
+		  undef $/; <$rawfile> };
+$id3v2->add_frame("APIC", 0, $imgtype, "\000", "", $image);
+
+$id3v2->write_tag();

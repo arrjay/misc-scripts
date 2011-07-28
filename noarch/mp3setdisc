@@ -1,0 +1,15 @@
+#!/usr/bin/perl
+
+use MP3::Tag;
+
+$discinfo = $ARGV[0];
+$mp3file = $ARGV[1];
+
+my $mp3 = MP3::Tag->new($mp3file);
+
+$mp3->get_tags();
+$id3v2 = $mp3->{ID3v2};
+
+$id3v2->frame_select("TPOS", '', undef, $discinfo);
+
+$id3v2->write_tag();

@@ -29,6 +29,11 @@ my $vmuse;
     my @phy_tmp = split (/ +/,$phy_tmp);
     $physmem = $phy_tmp[1]/1048576;
     $physmem_in_k = $phy_tmp[1]/1024;
+  } elsif ($os eq 'SunOS') {
+    my $phy_tmp = `prtconf | grep '^Memory size: '`;
+    my @phy_tmp = split (/ +/,$phy_tmp);
+    $physmem = $phy_tmp[2];
+    $physmem_in_k = $phy_tmp[2] * 1024;
   } else {
     my @tc = stat '/proc/kcore';
     my $km_tmp = $tc[7];
@@ -72,6 +77,13 @@ my $vmuse;
         }
     }
     close(MEMINFO);
+    my $vmuse_in_k = $physmem_in_k - $vmfree_in_k;
+    $vmuse = int($vmuse_in_k/1024);
+    $mem_usage = int($vmuse_in_k/$physmem_in_k * 1000)/10;
+  } elsif ($os eq 'SunOS') {
+    my $vmstat = `vmstat|tail -n 1`;
+    my @vmstat = split (/ +/,$vmstat);
+    my $vmfree_in_k = $vmstat[5];
     my $vmuse_in_k = $physmem_in_k - $vmfree_in_k;
     $vmuse = int($vmuse_in_k/1024);
     $mem_usage = int($vmuse_in_k/$physmem_in_k * 1000)/10;
@@ -155,6 +167,22 @@ if ($os eq 'FreeBSD') {
     }
   }
   close(CPUINFO);
+} elsif ($os eq 'SunOS') {
+  $cpu_num = int(`psrinfo|wc -l`);
+  my $psrinfo_speed = `psrinfo -v|grep MHz|head -n 1`;
+  my @psrinfo_speed = split(/ +/, $psrinfo_speed);
+  $cpu_speed = $psrinfo_speed[6];
+  my $raw_cpu_type = `prtpicl -c cpu -v|grep \:family|head -n 1`;
+  my @raw_cpu_type = split(/ +/, $raw_cpu_type);
+  if ($raw_cpu_type[2] eq '0xf') {
+    $cpu_type = 'Intel Pentium 4';
+  }
+  my $raw_cpu_cache = `prtpicl -c cpu -v|grep \:sectored-l2-cache-size|head -n 1`;
+  my @raw_cpu_cache = split(/ +/, $raw_cpu_cache);
+  # HACK - wild assed guessing ahead
+  if ($raw_cpu_cache[2] eq '0x80000') {
+    $cpu_L2_cache = '1024KB';
+  }
 }
       
 print " [CPU]:-[".$cpu_num."-".$cpu_type.", ".$cpu_speed."MHz, ".$cpu_L2_cache,
@@ -173,6 +201,10 @@ open(STDERR,">/dev/null");
   } else {
 	$uptime = `uptime`;
   }
+}
+# HACK - what the hell, solaris?
+if ('x'.$uptime eq 'x') {
+  $uptime = `uptime`;
 }
 open(STDERR,">&OLD_STDERR");
 chomp($uptime);
@@ -215,7 +247,12 @@ if (`which uprecords`) {
     $rec_minutes = $tsplit[1];
     $record_t += $rec_minutes;
   }
-  $upr_succ = 1;
+  # another solaris hack
+  if ('x'.$record[2] eq 'x') {
+    $upr_succ = 0;
+  } else {
+    $upr_succ = 1;
+  }
 }
 open(STDERR,">&OLD_STDERR");
 

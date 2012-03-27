@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# launch firefox with the 'magic' java
+
+MOZ_PLUGIN_PATH="${HOME}/.jnc-java-plug" firefox --no-remote -P junipervpn

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# launch the default firefox profile
+
+firefox -P default "$@"

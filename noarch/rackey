@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# first, load the key in
+/path/to/racadm.exe -r $1 -u root -p $2 sslkeyupload -f $_ssl_key_path/$1.key -t 1
+
+# if that worked, load the certificate in
+/path/to/racadm.exe -r $1 -u root -p $2 sslcertupload -f $_ssl_key_path/$1.crt -t 1

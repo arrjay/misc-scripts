@@ -6,10 +6,14 @@
 # FIXME: read this stuff from environment?
 _hostname=$1
 _country=US
-_state=Virginia
-_locality="Tysons Corner"
-_organization="Produxi Internetworks"
-_org_unit="Unix Mechanics"
+#_state=Virginia
+_state=California
+#_locality="Tysons Corner"
+_locality="Palo Alto"
+#_organization="Produxi Internetworks"
+_organization="Palantir Technologies"
+#_org_unit="Unix Mechanics"
+_org_unit="Information Technology (RAC Self-Signer)"
 
 # you shouldn't have to change these
 keyopts="rsa:2048 -nodes"

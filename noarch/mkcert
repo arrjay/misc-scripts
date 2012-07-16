@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# make a key, make a csr, sign a cert. wrapper around openssl because
+#  remembering is hard.
+
+# FIXME: read this stuff from environment?
+_hostname=$1
+_country=US
+_state=Virginia
+_locality="Tysons Corner"
+_organization="Produxi Internetworks"
+_org_unit="Unix Mechanics"
+
+# you shouldn't have to change these
+keyopts="rsa:2048 -nodes"
+
+# make a key/csr combo
+openssl req -new -keyout ${_hostname}.key -newkey ${keyopts} -out ${_hostname}.csr -subj "/C=${_country}/ST=${_state}/L=${_locality}/O=${organization}/OU=${_org_unit}/CN=${_hostname}"
+
+# if that worked, sign the csr with the key
+openssl x509 -req -days 366 -in ${_hostname}.csr -signkey ${_hostname}.key -out ${hostname}.crt

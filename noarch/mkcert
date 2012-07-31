@@ -3,23 +3,102 @@
 # make a key, make a csr, sign a cert. wrapper around openssl because
 #  remembering is hard.
 
-# FIXME: read this stuff from environment?
-_hostname=$1
-_country=US
-#_state=Virginia
-_state=California
-#_locality="Tysons Corner"
-_locality="Palo Alto"
-#_organization="Produxi Internetworks"
-_organization="Palantir Technologies"
-#_org_unit="Unix Mechanics"
-_org_unit="Information Technology (RAC Self-Signer)"
+# Builtin defaults for certificate creation, read MKCERT_ env vars
+_country=${MKCERT_COUNTRY-US}
+_state=${MKCERT_STATE-Virginia}
+_locality=${MKCERT_LOCALITY-Vienna}
+_organization=${MKCERT_ORG-"Produxi Internetworks"}
+_org_unit=${MKCERT_OU-"MKCert v0.2"}
+
+# clear _v3_opts
+_v3_opts=""
+
+# unwind options
+while getopts "c:s:l:o:u:h:n:" _opt; do
+  case ${_opt} in
+    c)
+      _country=${OPTARG}
+      ;;
+    s)
+      _state=${OPTARG}
+      ;;
+    l)
+      _locality=${OPTARG}
+      ;;
+    o)
+      _organization=${OPTARG}
+      ;;
+    u)
+      _org_unit=${OPTARG}
+      ;;
+    h)
+      _hostname=${OPTARG}
+      ;;
+    n)
+      # this is a fun one...
+      _alt_flag="yes"
+      _altnames=${OPTARG}
+  esac
+done
+
+# we set hostname, right?
+if [ -z "$_hostname" ]; then echo "you need to supply -h HOSTNAME" && exit 1; fi
+
+# make a temporary config, own it
+umask 0022
+_SSLCONF=`mktemp --tmpdir mkcertXXX.cnf`
+export OPENSSL_CONF=${_SSLCONF}
+# req, req_distinguished_name sections required for openssl to shut up
+#                                                 but -subj overrides?
+cat > ${_SSLCONF} << END_CONFIG
+[ req ]
+distinguished_name	= req_distinguished_name
+
+[ req_distinguished_name ]
+countryName		= ${_country}
+state			= ${_state}
+localityName		= ${_locality}
+0.organizationName	= ${_organization}
+organizationUnitName	= ${_org_unit}
+
+[ v3_req ]
+END_CONFIG
+
+if [ "${_alt_flag}" = "yes" ]; then
+# unwind/rewind the SANs
+_sanString="DNS:"$_hostname
+for name in $_altnames; do
+  _sanString="${_sanString},DNS:${name}"
+done
+
+# append to CSR
+cat >> ${_SSLCONF} << END_CONFIG
+subjectAltName		= ${_sanString}
+END_CONFIG
+
+# append to cert
+_X509EXT=`mktemp --tmpdir mkcertXXX.cnf`
+cat > ${_X509EXT} << END_CONFIG
+subjectAltName		= ${_sanString}
+END_CONFIG
+
+# options to x509
+_ext_opts="-extfile ${_X509EXT}"
+
+# options to req
+_v3_opts="-extensions v3_req"
+
+fi
 
 # you shouldn't have to change these
 keyopts="rsa:2048 -nodes"
 
 # make a key/csr combo
-openssl req -new -keyout ${_hostname}.key -newkey ${keyopts} -out ${_hostname}.csr -subj "/C=${_country}/ST=${_state}/L=${_locality}/O=${organization}/OU=${_org_unit}/CN=${_hostname}"
+openssl req -config ${_SSLCONF} -new -keyout ${_hostname}.key -newkey ${keyopts} -out ${_hostname}.csr -subj "/C=${_country}/ST=${_state}/L=${_locality}/O=${_organization}/OU=${_org_unit}/CN=${_hostname}" ${_v3_opts}
 
 # if that worked, sign the csr with the key
-openssl x509 -req -days 366 -in ${_hostname}.csr -signkey ${_hostname}.key -out ${hostname}.crt
+openssl x509 -req -days 366 -in ${_hostname}.csr -signkey ${_hostname}.key -out ${_hostname}.crt ${_ext_opts}
+
+# clean up
+rm ${_SSLCONF}
+rm ${_X509EXT}

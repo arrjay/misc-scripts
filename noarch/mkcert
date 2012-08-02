@@ -8,7 +8,7 @@ _country=${MKCERT_COUNTRY-US}
 _state=${MKCERT_STATE-Virginia}
 _locality=${MKCERT_LOCALITY-Vienna}
 _organization=${MKCERT_ORG-"Produxi Internetworks"}
-_org_unit=${MKCERT_OU-"MKCert v0.2"}
+_org_unit=${MKCERT_OU-"MKCert v1.0"}
 
 # clear _ext_opts
 _ext_opts=""

@@ -10,6 +10,9 @@ _locality=${MKCERT_LOCALITY-Vienna}
 _organization=${MKCERT_ORG-"Produxi Internetworks"}
 _org_unit=${MKCERT_OU-"MKCert v1.0"}
 
+# set the key size. you shouldn't have to change these unless you have a damn good reason
+keyopts="rsa:2048 -nodes"
+
 # clear _ext_opts
 _ext_opts=""
 
@@ -84,7 +87,7 @@ echo "DNS.1		= ${_hostname}" >> ${_SSLCONF}
 x=2
 for name in $_altnames; do
   echo "DNS.${x}		= ${name}" >> ${_SSLCONF}
-  x=`expr $x + 1`
+  x=$(( $x + 1 ))
 done
 
 # append to cert
@@ -99,9 +102,6 @@ _ext_opts="-extfile ${_X509EXT}"
 fi
 
 cat ${_SSLCONF}
-
-# you shouldn't have to change these
-keyopts="rsa:2048 -nodes"
 
 # make a key/csr combo
 openssl req -config ${_SSLCONF} -new -keyout ${_hostname}.key -newkey ${keyopts} -out ${_hostname}.csr -subj "/C=${_country}/ST=${_state}/L=${_locality}/O=${_organization}/OU=${_org_unit}/CN=${_hostname}"

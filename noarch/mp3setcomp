@@ -1,0 +1,9 @@
+#!/usr/bin/perl -w
+use MP3::Tag;
+
+$TARGET=$ARGV[0];
+$mp3 = MP3::Tag->new($TARGET);
+$mp3->get_tags;
+$mp3->{ID3v2}->add_frame("TCMP","1");
+$mp3->{ID3v2}->write_tag;
+$mp3->close();

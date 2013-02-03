@@ -152,6 +152,8 @@ if ($os eq 'FreeBSD') {
     } elsif (($_[0] eq 'cpu') && ($_[1] eq 'family')) {
       if ($_[3] == 15) {
         $cpu_type = 'Intel Pentium 4';
+      } elsif ($_[3] == 44) {
+        $cpu_type = 'Intel Xeon';
       }
     } elsif (($_[0] eq 'cpu') && ($_[1] eq 'MHz')) {
       $cpu_speed = int($_[3]);
@@ -277,7 +279,7 @@ my @mount = `mount`;
 my %drive_infos;
 my @drives;
 my %opt_excludes = ('devfs'=>1, 'nullfs'=>1, 'fdescfs'=>1, 'procfs'=>1, 'tmpfs'=>1);
-my %point_excludes = ('/dev/shm'=>1, '/dev'=>1, '/run'=>1, '/media'=>1, '/sys/fs/cgroup'=>1);
+my %point_excludes = ('/dev/shm'=>1, '/dev'=>1, '/run'=>1, '/media'=>1, '/sys/fs/cgroup'=>1, '/run/lock'=>1, '/run/shm'=>1);
 my $total_used_k = 0;
 my $total_k = 0;
 foreach (@mount) {

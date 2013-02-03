@@ -1,0 +1,64 @@
+NOTES concerning getent
+=======================
+
+I use getent where possible as it will call into nsswitch or equivalent where
+  availble and actually use what the OS thinks a user account looks like, even
+  if that is derived from NIS/LDAP/Likewise/Centrify.
+
+Solaris has had getent since at least Solaris 7.
+
+IRIX 6.5 uses nsadmin - notably 'nsadmin grep'
+
+Linux getent arrived with glibc2, at least.
+
+NextSTEP/OpenStep also don't have getent. Use niutil for similar things in the
+  NetInfo environment.
+
+OS X doesn't have getent at all. It uses DirectoryServices rather than nsswitch.
+  'dscl' can be used, much like niutil.
+
+NetBSD got getent starting with 3.0.
+
+FreeBSD got getent starting with 7.0.
+
+VMware ESXi doesn't have getent, though it does have nsswitch (argh!).
+
+
+NOTES concerning Modular Crypt Format
+=====================================
+
+A lot of this is culled from http://packages.python.org/passlib/modular_crypt_format.html
+  and various web searches.
+
+Modular crypt formats available
+crypt 	- no $ prefixing - cryptographically weak - 'non-modular crypt'
+md5   	- $1$ prefix, probably the most compatible stronger encryption option.
+	  works on sufficiently new Linux/Solaris/FreeBSD/NetBSD/OpenBSD
+bcrypt	- $2(a|x|y)$ prefix, *BSD and Solaris compatible
+	  *some* Linux distributions (Suse?) support $2a$
+nthash	- $3$ prefix, FreeBSD only?
+sha256	- $5$ prefix, FreeBSD/Linux/Solaris
+sha512	- $6$ prefix, FreeBSD/Linux/Solaris - good candidate for next 'standard crypt'
+sun_md5	- $md5$ or $md5, - Solaris only?
+sha1	- $sha1$, NetBSD only.
+
+Solaris 9u2 or above supports md5
+Solaris 10u6 or above supports sha256/sha512
+
+IRIX doesn't support non-crypt passwords at all.
+
+Linux has supported md5 passwords since glibc2.
+Linux needs to have vendor backports or glibc-2.7+ to support sha256/sha512.
+
+NeXTSTEP/OpenStep doen't support non-crypt passwords at all.
+
+OS X/Darwin does...several incompatible non-crypt things, depending on version.
+  I try not to think about it.
+
+NetBSD had a bug in useradd/usermod until release 1.6.1 where it rejected
+  hashes longer than 13 characters.
+NetBSD had other bugs with sha1 passwords until release 4.0
+
+FreeBSD 4.4 and above support either crypt or md5 passwords. Previous versions
+  supported exclusively one or the other.
+FreeBSD 8.3 and above have support for sha256/sha512

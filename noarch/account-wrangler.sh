@@ -26,9 +26,10 @@ if [ $(uname -s) == "VMkernel" ]; then
       _uid=
       _pass=
       _group=
+      _comment=
       _shell=/bin/ash
       OPTIND=1
-      while getopts "u:g:p:s:" _opt; do
+      while getopts "u:g:p:s:c:" _opt; do
         case ${_opt} in
           u)
             _uid=${OPTARG}
@@ -39,11 +40,13 @@ if [ $(uname -s) == "VMkernel" ]; then
           g)
             _group=${OPTARG}
             ;;
+          c)
+            _comment="${OPTARG}"
         esac
       done
       shift $(($OPTIND -1))
       _user=${1}
-      /sbin/useradd -u ${_uid} -g ${_group} -s ${_shell} ${_user}
+      /sbin/useradd -u ${_uid} -g ${_group} -s ${_shell} -c "${_comment}" ${_user}
       usermod -g root -p ${_pass} ${_user}
     }
     # usermod on ESXi does...what?
@@ -106,11 +109,12 @@ for x in $(echo *.passwd) ; do
   if [ $? -ne 0 ]; then
     uid=$(awk -F ':' '{ print $3 }' ${pwent})
     shell=$(awk -F ':' '{ print $7 }' ${pwent})
+    comment=$(awk -F ':' '{ print $5 }' ${pwent})
     # set the password hash if we have one
     if [ -f ${user}.shadow ]; then
       pass=$(awk -F ':' '{ print $2 }' ${user}.shadow)
     fi
-    useradd -u ${uid} -g ${user} -p ${pass} -s ${shell} ${user}
+    useradd -u ${uid} -g ${user} -p ${pass} -s ${shell} -c "${comment}" ${user}
   fi
   # add SSH keys if they exist
   if [ -f ${user}.pub ]; then

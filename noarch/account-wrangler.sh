@@ -74,7 +74,7 @@ if [ $(uname -s) == "VMkernel" ]; then
       fi
       if [ -n "${_pass}" ]; then
         shent=$(getent shadow ${_user})
-        nshent=$(echo -n "${shent}"|awk 'BEGIN{FS=":",OFS=":"} { print $1,"'${_pass}'",$3,$4,5,$6,$7,$8 }')
+        nshent=$(echo -n "${shent}"|awk 'BEGIN{FS=":",OFS=":"} { print $1,"'${_pass}'",$3,$4,$5,$6,$7,$8,$9 }')
         sed -e s@"${shent}"@"${nshent}"@ /etc/shadow > /etc/shadow.new
         chmod u+w /etc/shadow
         mv -f /etc/shadow.new /etc/shadow

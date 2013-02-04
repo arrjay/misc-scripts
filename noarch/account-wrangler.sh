@@ -47,7 +47,11 @@ if [ $(uname -s) == "VMkernel" ]; then
       shift $(($OPTIND -1))
       _user=${1}
       /sbin/useradd -u ${_uid} -g ${_group} -s ${_shell} -c "${_comment}" ${_user}
-      usermod -g root -p ${_pass} ${_user}
+      # Change the primary group to 'root' - if you're adding accounts on ESXi
+      #  via tech support mode, you probably want more admins...
+      usermod -g root -p ${_pass} -a -G ${_group} ${_user}
+      # set permissions for the ESXi app as well
+      /bin/vim-cmd vimsvc/auth/entity_permission_add vim.Folder:ha-folder-root ${_user} false Admin true
     }
     # usermod on ESXi does...what?
     usermod() {
@@ -55,14 +59,22 @@ if [ $(uname -s) == "VMkernel" ]; then
       _group=
       _pass=
       _gid=
+      _grouplist=
+      _append_flag=false
       OPTIND=1
-      while getopts "g:p:" _opt; do
+      while getopts "g:p:G:a" _opt; do
         case ${_opt} in
           g)
             _group=${OPTARG}
             ;;
           p)
             _pass=${OPTARG}
+            ;;
+          G)
+            _grouplist=${OPTARG}
+            ;;
+          a)
+            _append_flag=true
             ;;
         esac
       done
@@ -77,11 +89,38 @@ if [ $(uname -s) == "VMkernel" ]; then
       fi
       if [ -n "${_pass}" ]; then
         shent=$(getent shadow ${_user})
-        nshent=$(echo -n "${shent}"|awk 'BEGIN{FS=":",OFS=":"} { print $1,"'${_pass}'",$3,$4,$5,$6,$7,$8,$9 }')
+        nshent=$(echo -n "${shent}"|awk 'BEGIN{FS=":";OFS=":"} { print $1,"'${_pass}'",$3,$4,$5,$6,$7,$8,$9 }')
         sed -e s@"${shent}"@"${nshent}"@ /etc/shadow > /etc/shadow.new
         chmod u+w /etc/shadow
         mv -f /etc/shadow.new /etc/shadow
         chmod u-w /etc/shadow
+      fi
+      if [ -n "${_grouplist}" ]; then
+        if [ ${_append_flag} == "true" ]; then
+          for _group in $(echo ${_grouplist}|awk 'BEGIN{FS=","} { print }'); do
+            grent=$(getent group ${_group})
+            ngrent=
+            grmem=$(echo -n "${grent}"|awk 'BEGIN{FS=":";} { print $4 }')
+            ingroup=0
+            for member in $(echo "${grmem}"|awk 'BEGIN{FS=","} { print }'); do
+              if [ ${member} == ${_user} ]; then
+                ingroup=1
+              fi
+            done
+            if [ ${ingroup} == "0" ]; then
+              lc=$(echo -n "${grent}"|awk '{ print substr($0,length($0),1)}')
+              if [ ${lc} == ":" ]; then
+                ngrent=${grent}${_user}
+              else
+                ngrent=${grent},${_user}
+              fi
+            fi
+            if [ -n "${ngrent}" ]; then
+              sed -e s@"${grent}"@"${ngrent}"@ /etc/group > /etc/group.new
+              mv -f /etc/group.new /etc/group
+            fi
+          done
+        fi
       fi
     }
   fi
@@ -116,11 +155,25 @@ for x in $(echo *.passwd) ; do
     fi
     useradd -u ${uid} -g ${user} -p ${pass} -s ${shell} -c "${comment}" ${user}
   fi
+  # Create home directories, set permissions
+  userhome=$(getent passwd ${user}|awk -F ':' '{ print $6 }')
+  mkdir -p "${userhome}"
+  chown ${user} "${userhome}"
+  pgid=$(getent passwd ${user}|awk -F ':' '{ print $4 }')
+  chgrp ${pgid} "${userhome}"
   # add SSH keys if they exist
   if [ -f ${user}.pub ]; then
-    userhome=$(getent passwd ${user}|awk -F ':' '{ print $6 }')
-    sudo -u ${user} mkdir ${userhome}/.ssh
-    echo ${user}.pub | sudo -u ${user} tee -a ${userhome}/.ssh/authorized_keys > /dev/null
+    # FIXME: Use sudo when available!
+    #sudo -u ${user} mkdir ${userhome}/.ssh
+    #echo ${user}.pub | sudo -u ${user} tee -a ${userhome}/.ssh/authorized_keys > /dev/null
+    mkdir "${userhome}"/.ssh
+    chown ${user} "${userhome}"/.ssh
+    chgrp ${pgid} "${userhome}"/.ssh
+    chmod 0700 "${userhome}"/.ssh
+    cat ${user}.pub >> "${userhome}"/.ssh/authorized_keys
+    chown ${user} "${userhome}"/.ssh/authorized_keys
+    chgrp ${pgid} "${userhome}"/.ssh/authorized_keys
+    chmod 0600 "${userhome}"/.ssh/authorized_keys
   fi
 done
 

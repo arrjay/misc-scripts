@@ -46,10 +46,12 @@ if [ $(uname -s) == "VMkernel" ]; then
       done
       shift $(($OPTIND -1))
       _user=${1}
-      /sbin/useradd -u ${_uid} -g ${_group} -s ${_shell} -c "${_comment}" ${_user}
+      # VMware *useradd* only seems to support 16-bit UIDs. Cheat...
+      /sbin/useradd -g ${_group} -s ${_shell} -c "${_comment}" ${_user}
       # Change the primary group to 'root' - if you're adding accounts on ESXi
       #  via tech support mode, you probably want more admins...
-      usermod -g root -p ${_pass} -a -G ${_group} ${_user}
+      # We also 'fix' the UID at this time...
+      usermod -g root -u ${_uid} -p ${_pass} -a -G ${_group} ${_user}
       # set permissions for the ESXi app as well
       /bin/vim-cmd vimsvc/auth/entity_permission_add vim.Folder:ha-folder-root ${_user} false Admin true
     }
@@ -61,8 +63,9 @@ if [ $(uname -s) == "VMkernel" ]; then
       _gid=
       _grouplist=
       _append_flag=false
+      _uid=
       OPTIND=1
-      while getopts "g:p:G:a" _opt; do
+      while getopts "g:p:G:au:" _opt; do
         case ${_opt} in
           g)
             _group=${OPTARG}
@@ -75,6 +78,9 @@ if [ $(uname -s) == "VMkernel" ]; then
             ;;
           a)
             _append_flag=true
+            ;;
+          u)
+            _uid=${OPTARG}
             ;;
         esac
       done
@@ -121,6 +127,13 @@ if [ $(uname -s) == "VMkernel" ]; then
             fi
           done
         fi
+      fi
+      if [ -n "${_uid}" ]; then
+        # FIXME: refactor so write of password file is done *once*
+        pwent=$(getent passwd ${_user})
+        npwent=$(echo "${pwent}"|awk 'BEGIN{FS=":";OFS=":"} { print $1,$2,'${_uid}',$4,$5,$6,$7 }')
+        sed -e s@"${pwent}"@"${npwent}"@ /etc/passwd > /etc/passwd.new
+        mv -f /etc/passwd.new /etc/passwd
       fi
     }
   fi

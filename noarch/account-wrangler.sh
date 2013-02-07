@@ -44,8 +44,10 @@ if [ $(uname -s) == "VMkernel" ]; then
             _comment="${OPTARG}"
         esac
       done
-      shift $(($OPTIND -1))
-      _user=${1}
+      if [ OPTIND -gt 1 ]; then
+        shift $(($OPTIND -1))
+        _user=${1}
+      fi
       # VMware *useradd* only seems to support 16-bit UIDs. Cheat...
       /sbin/useradd -g ${_group} -s ${_shell} -c "${_comment}" ${_user}
       # Change the primary group to 'root' - if you're adding accounts on ESXi
@@ -84,8 +86,10 @@ if [ $(uname -s) == "VMkernel" ]; then
             ;;
         esac
       done
-      shift $(($OPTIND -1))
-      _user=${1}
+      if [ $OPTIND -gt 1 ]; then
+        shift $(($OPTIND -1))
+        _user=${1}
+      fi
       pwent=$(getent passwd ${_user})
       if [ -n "${_group}" ]; then
         _gid=$(getent group ${_group}|awk 'BEGIN{FS=":"} { print $3 }') 

@@ -1,1 +1,1 @@
-*/5 * * * * root /usr/local/sbin/virsh-collect-stats.sh
+*/5 * * * * root /usr/libexec/virsh-collect-stats.sh

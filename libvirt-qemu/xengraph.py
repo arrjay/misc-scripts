@@ -17,9 +17,7 @@ def graph(basename, subname, seconds):
     rrds=glob.glob(basename+"*.rrd")
     rrds=[x for x in rrds if os.stat(x)[8] > (time.time()-seconds)]
 
-    cmdline="--imgformat PNG --unit % --vertical-label CPU%  "
-    #cmdline="--imgformat PNG --unit % --vertical-label CPU% --rigid --lower-limit 0 --upper-limit 100 "
-
+    cmdline="--imgformat PNG --vertical-label CPU%"
 
     if seconds>800000: lastoraverage="AVERAGE"
     else: lastoraverage="LAST"
@@ -32,8 +30,7 @@ def graph(basename, subname, seconds):
 	cmdline+="%s:id%dzero#%s:%s "%({0:"AREA"}.get(id,"STACK"),id,colors[id%len(colors)],rrd[len(basename):-4])
 	cmdline+="GPRINT:id%dpercent:AVERAGE:\"%s\" "%(id,"Average CPU usage\: %02.0lf%%\\j")
 
-    print cmdline
-    os.system("rrdtool graph %sxen-%s.png --start -%d --end -69 %s"%(basename,subname,seconds,cmdline))
+    os.system("rrdtool graph %s%s.png --start -%d --end -69 %s"%("/var/www/mrtg/libvirt/",subname,seconds,cmdline))
 
 basename=sys.argv[1]
 graph(basename, "hourly", 4000)

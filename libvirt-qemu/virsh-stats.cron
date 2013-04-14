@@ -1,2 +1,2 @@
 */5 * * * * root /usr/libexec/virsh-collect-stats.sh
-*/5 * * * * root /usr/libexec/virsh-graph-stats.py
+*/5 * * * * root /usr/libexec/virsh-graph-stats.py /var/lib/mrtg/libvirt/

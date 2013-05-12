@@ -26,41 +26,41 @@ oldname=$(dig -t PTR ${loctet}.${DELEGATION} @${NS} | grep 'IN PTR' | awk '{ pri
 case "$action" in
 	add)
 		UPDATE=$(mktemp)
-		printf "server %s" ${NS} > ${UPDATE}
-		printf "zone %s" ${DOMAIN} >> ${UPDATE}
+		printf "server %s\n" ${NS} > ${UPDATE}
+		printf "zone %s\n" ${DOMAIN} >> ${UPDATE}
 		if [ -z "${oldname}" ]; then
-			printf "update delete %s 3600 A" ${oldname}.${DOMAIN} >> ${UPDATE}
+			printf "update delete %s 3600 A\n" ${oldname}.${DOMAIN} >> ${UPDATE}
 		fi
-		printf "update delete %s 3600 A" ${name}.${DOMAIN} >> ${UPDATE}
-		printf "update add %s 3600 A %s" ${name}.${DOMAIN} ${ip} >> ${UPDATE}
-		printf "send" >> ${UPDATE}
+		printf "update delete %s 3600 A\n" ${name}.${DOMAIN} >> ${UPDATE}
+		printf "update add %s 3600 A %s\n" ${name}.${DOMAIN} ${ip} >> ${UPDATE}
+		printf "send\n" >> ${UPDATE}
 		nsupdate -k "${KEYFILE}" "${UPDATE}"
 		rm "$UPDATE"
 
 		UPDATE=$(mktemp)
-		printf "server %s" ${NS} > ${UPDATE}
-		printf "zone %s" ${DELEGATION} >> ${UPDATE}
-		printf "update delete %s 3600 PTR" ${loctet}.${DELEGATION} >> ${UPDATE}
-		printf "update add %s 3600 PTR %s" ${loctet}.${DELEGATION} ${name}.${DOMAIN} >> ${UPDATE}
-		printf "send" >> ${UPDATE}
+		printf "server %s\n" ${NS} > ${UPDATE}
+		printf "zone %s\n" ${DELEGATION} >> ${UPDATE}
+		printf "update delete %s 3600 PTR\n" ${loctet}.${DELEGATION} >> ${UPDATE}
+		printf "update add %s 3600 PTR %s\n" ${loctet}.${DELEGATION} ${name}.${DOMAIN} >> ${UPDATE}
+		printf "send\n" >> ${UPDATE}
 		nsupdate -k "${KEYFILE}" "${UPDATE}"
 		rm "${UPDATE}"
 		;;
 	delete)
 		if [ -z "${name}" ]; then
 			UPDATE=$(mktemp)
-			printf "server %s" ${NS} > ${UPDATE}
-			printf "zone %s" ${DOMAIN} >> ${UPDATE}
-			printf "update delete %s 3600 A" ${name}.${DOMAIN} >> ${UPDATE}
-			printf "send" >> ${UPDATE}
+			printf "server %s\n" ${NS} > ${UPDATE}
+			printf "zone %s\n" ${DOMAIN} >> ${UPDATE}
+			printf "update delete %s 3600 A\n" ${name}.${DOMAIN} >> ${UPDATE}
+			printf "send\n" >> ${UPDATE}
 			nsupdate -k "${KEYFILE}" "${UPDATE}"
 			rm "$UPDATE"
 		fi
 		UPDATE=$(mktemp)
-		printf "server %s" ${NS} > ${UPDATE}
-		printf "zone %s" ${DELEGATION} >> ${UPDATE}
-		printf "update delete %s 3600 PTR" ${loctet}.${DELEGATION} >> ${UPDATE}
-		printf "send" >> ${UPDATE}
+		printf "server %s\n" ${NS} > ${UPDATE}
+		printf "zone %s\n" ${DELEGATION} >> ${UPDATE}
+		printf "update delete %s 3600 PTR\n" ${loctet}.${DELEGATION} >> ${UPDATE}
+		printf "send\n" >> ${UPDATE}
 		nsupdate -k "${KEYFILE}" "${UPDATE}"
 		rm "${UPDATE}"
 		;;

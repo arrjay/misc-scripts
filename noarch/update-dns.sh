@@ -11,12 +11,12 @@ name=$(echo $3 | awk -F '.' '{ print $1 }')
 loctet=$(echo $ip | awk -F '.' '{ print $4 }')
 
 # attempt to look up name if expiring a deletion
-if [ -n "${name}" ]; then
+if [ -z "${name}" ]; then
 	name=$(dig -t PTR ${loctet}.${DELEGATION} @${NS} | grep 'IN PTR' | awk '{ print $5 }' | awk -F '.' '{ print $1 }')
 fi
 
 # err, if we still don't have a name, make something up
-if [ -n "${name}" ]; then
+if [ -z "${name}" ]; then
 	name="dynclient-${loctet}"
 fi
 

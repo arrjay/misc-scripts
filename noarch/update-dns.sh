@@ -11,12 +11,12 @@ name=$(echo $3 | awk -F '.' '{ print $1 }')
 loctet=$(echo $ip | awk -F '.' '{ print $4 }')
 
 # attempt to look up name if expiring a deletion
-if [ -z "${name}" ]; then
+if [ -n "${name}" ]; then
 	name=$(dig -t PTR ${loctet}.${DELEGATION} @${NS} | grep 'IN PTR' | awk '{ print $5 }' | awk -F '.' '{ print $1 }')
 fi
 
 # err, if we still don't have a name, make something up
-if [ -z "${name}" ]; then
+if [ -n "${name}" ]; then
 	name="dynclient-${loctet}"
 fi
 
@@ -28,7 +28,7 @@ case "$action" in
 		UPDATE=$(mktemp)
 		printf "server %s\n" ${NS} > ${UPDATE}
 		printf "zone %s\n" ${DOMAIN} >> ${UPDATE}
-		if [ -z "${oldname}" ]; then
+		if [ -n "${oldname}" ]; then
 			printf "update delete %s 3600 A\n" ${oldname}.${DOMAIN} >> ${UPDATE}
 		fi
 		printf "update delete %s 3600 A\n" ${name}.${DOMAIN} >> ${UPDATE}
@@ -47,7 +47,7 @@ case "$action" in
 		rm "${UPDATE}"
 		;;
 	delete)
-		if [ -z "${name}" ]; then
+		if [ -n "${name}" ]; then
 			UPDATE=$(mktemp)
 			printf "server %s\n" ${NS} > ${UPDATE}
 			printf "zone %s\n" ${DOMAIN} >> ${UPDATE}

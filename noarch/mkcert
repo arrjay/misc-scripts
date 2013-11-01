@@ -11,7 +11,7 @@ _organization=${MKCERT_ORG-"Produxi Internetworks"}
 _org_unit=${MKCERT_OU-"MKCert v1.0"}
 
 # set the key size. you shouldn't have to change these unless you have a damn good reason
-keyopts="rsa:2048 -nodes"
+keyopts="rsa:4096 -nodes"
 
 # clear _ext_opts
 _ext_opts=""

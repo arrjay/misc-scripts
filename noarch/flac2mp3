@@ -44,10 +44,10 @@ eyeD3 --no-zero-padding --set-text-frame=TPOS:"${DISCNUMBER}" "${OUTFILE}" > /de
 
 if [ ! -z "${COMPILATION}" ] ; then
   if [ "${COMPILATION}" -eq "1" ]; then
-    mp3setcomp "${OUTFILE}"
+    eyeD3 --set-text-frame=TCMP:1 "${OUTFILE}" > /dev/null
   fi
 fi
 
 if [ ! -z "${GROUPING}" ]; then
-  eyeD3 --set-text-frame=TIT1:"${GROUPING}" "${OUTFILE}"
+  eyeD3 --set-text-frame=TIT1:"${GROUPING}" "${OUTFILE}" > /dev/null
 fi

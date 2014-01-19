@@ -23,7 +23,7 @@ flac -d "${1}" -s -f -o ${WAVFILE}
 
 OUTFILE=`echo ${1}|sed s/flac/mp3/i`
 
-lame -V2 --vbr-new -b 112 -B 320 -S --add-id3v2 --id3v2-only --tt "${TITLE}" --ta "${ARTIST}" --tl "${ALBUM}" --ty "${DATE}" --tn ${TRACKNUMBER}/${TRACKTOTAL} $WAVFILE "${OUTFILE}"
+lame -V2 --vbr-new -b 112 -B 320 -S --noreplaygain --add-id3v2 --id3v2-only --tt "${TITLE}" --ta "${ARTIST}" --tl "${ALBUM}" --ty "${DATE}" --tn ${TRACKNUMBER}/${TRACKTOTAL} $WAVFILE "${OUTFILE}"
 
 rm $WAVFILE
 

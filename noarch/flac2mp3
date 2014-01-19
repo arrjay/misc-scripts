@@ -1,8 +1,10 @@
 #!/bin/sh
 
+# tag manipulation fields from http://www.mcternan.co.uk/aifffffs/
+
 TMPFILE=`mktemp -p /tmp`
 metaflac --list --block-type=VORBIS_COMMENT "${1}" > $TMPFILE
-for TAG in TITLE ARTIST ALBUM DISCNUMBER DATE TRACKNUMBER TRACKTOTAL COMPILATION; do
+for TAG in TITLE ARTIST ALBUM DISCNUMBER DATE TRACKNUMBER TRACKTOTAL COMPILATION GROUPING; do
 	eval $TAG=\`grep ${TAG}= $TMPFILE\|sed s/.\*${TAG}=//\`
 done
 rm $TMPFILE
@@ -30,6 +32,10 @@ rm $PICFILE
 
 mp3setdisc "$DISCNUMBER" "${OUTFILE}"
 
-if [  ${COMPILATION} == "1" ]; then
-	mp3setcomp "${OUTFILE}"
+if [ ${COMPILATION} == "1" ]; then
+  mp3setcomp "${OUTFILE}"
+fi
+
+if [ ${GROUPING} == "1" ]; then
+  eyeD3 --set-text-frame=TIT1:"${GROUPING}" "${OUTFILE}"
 fi

@@ -27,10 +27,20 @@ lame -V2 --vbr-new -b 112 -B 320 -S --noreplaygain --add-id3v2 --id3v2-only --tt
 
 rm $WAVFILE
 
-mp3addpic $PICFILE "${PICTYPE}" "${OUTFILE}"
+case ${PICTYPE} in
+  image/jpeg)
+    mv "${PICFILE}" "${PICFILE}.jpg"
+    PICFILE="${PICFILE}.jpg"
+  ;;
+  *)
+  ;;
+esac
+
+eyeD3 --add-image=${PICFILE}:FRONT_COVER "${OUTFILE}"
+
 rm $PICFILE
 
-mp3setdisc "$DISCNUMBER" "${OUTFILE}"
+eyeD3 --no-zero-padding --set-text-frame=TPOS:"${DISCNUMBER}" "${OUTFILE}" > /dev/null
 
 if [ ! -z "${COMPILATION}" ] ; then
   if [ "${COMPILATION}" -eq "1" ]; then

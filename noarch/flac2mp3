@@ -1,10 +1,10 @@
-#!/bin/sh
+#!/bin/bash
 
 # tag manipulation fields from http://www.mcternan.co.uk/aifffffs/
 
 TMPFILE=$(mktemp /tmp/XXXXXX)
 metaflac --list --block-type=VORBIS_COMMENT "${1}" > $TMPFILE
-for TAG in TITLE ARTIST ALBUM DISCNUMBER DATE TRACKNUMBER TRACKTOTAL COMPILATION GROUPING; do
+for TAG in TITLE ARTIST ALBUM DISCNUMBER DATE TRACKNUMBER TRACKTOTAL COMPILATION GROUPING LICENSE COMMENT; do
 	eval $TAG=\`grep ${TAG}= $TMPFILE\|sed s/.\*${TAG}=//\`
 done
 rm $TMPFILE
@@ -51,3 +51,14 @@ fi
 if [ ! -z "${GROUPING}" ]; then
   eyeD3 --set-text-frame=TIT1:"${GROUPING}" "${OUTFILE}" > /dev/null
 fi
+
+if [ ! -z "${LICENSE}" ] ; then
+  # weird bug in my easytag - URL got mapped to license - but we want GEN2 in the comment field anyway
+  if [[ "${LICENSE}" =~ "GEN2" ]] ; then
+    COMMENT="GEN2_SRC ${COMMENT}"
+  fi
+fi
+
+COMMENT="FLAC2MP3_1.0 ${COMMENT}"
+
+eyeD3 --comment "eng:'':${COMMENT}" "${OUTFILE}" > /dev/null

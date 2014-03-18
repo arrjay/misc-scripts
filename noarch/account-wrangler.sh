@@ -1,13 +1,38 @@
 #!/bin/sh
 
-if [ $(whoami) != "root" ]; then
-  echo "this script needs to be run as root to modify accounts"
+if [ $(uname -s) == "VMkernel" ]; then
+  if [ "${USER}" != "root" ]; then
+    echo "this script needs to be run as root to modify accounts"
+    exit 2
+  fi
+else
+  if [ $(whoami) != "root" ]; then
+    echo "this script needs to be run as root to modify accounts"
+    exit 2
+  fi
 fi
 
 # declare overrides if needed
 if [ $(uname -s) == "VMkernel" ]; then
   vmkmaj=$(uname -r|sed s'/\..*//')
-  if [ $vmkmaj -lt "5" ]; then
+  if [ $vmkmaj -lt "6" ]; then
+    groupadd() {
+      _group=
+      _gid=
+      while getopts "g:" _opt; do
+        case ${_opt} in
+          g)
+            _gid=${OPTARG}
+            ;;
+        esac
+      done
+      if [ $OPTIND -gt 1 ]; then
+        shift $(($OPTIND - 1))
+        _group=${1}
+      fi
+      # cheat. cheat badly.
+      echo "${_group}:x:${_gid}:" >> /etc/group
+    }
     getent() {
       database=${1}
       case ${database} in
@@ -44,12 +69,18 @@ if [ $(uname -s) == "VMkernel" ]; then
             _comment="${OPTARG}"
         esac
       done
-      if [ OPTIND -gt 1 ]; then
+      if [ $OPTIND -gt 1 ]; then
         shift $(($OPTIND -1))
         _user=${1}
       fi
       # VMware *useradd* only seems to support 16-bit UIDs. Cheat...
-      /sbin/useradd -g ${_group} -s ${_shell} -c "${_comment}" ${_user}
+      if [ $vmkmaj -lt "5" ]; then
+        /sbin/useradd -g ${_group} -s ${_shell} -c "${_comment}" ${_user}
+      else
+        # vmware 5.x throws us to the wolves.
+        _gid=$(getent group ${_user}|awk -F: '{print $3}')
+        echo "${_user}:x:${_uid}:${_gid}:${_comment}:/home/${_user}:/bin/ash" >> /etc/passwd
+      fi
       # Change the primary group to 'root' - if you're adding accounts on ESXi
       #  via tech support mode, you probably want more admins...
       # We also 'fix' the UID at this time...
@@ -99,11 +130,16 @@ if [ $(uname -s) == "VMkernel" ]; then
       fi
       if [ -n "${_pass}" ]; then
         shent=$(getent shadow ${_user})
-        nshent=$(echo -n "${shent}"|awk 'BEGIN{FS=":";OFS=":"} { print $1,"'${_pass}'",$3,$4,$5,$6,$7,$8,$9 }')
-        sed -e s@"${shent}"@"${nshent}"@ /etc/shadow > /etc/shadow.new
-        chmod u+w /etc/shadow
-        mv -f /etc/shadow.new /etc/shadow
-        chmod u-w /etc/shadow
+        if [ -z "${shent}" ] ; then
+          _days=$(expr $(date '+%s') / 86400)
+          echo "${_user}:${_pass}:${_days}:0:99999:7:::" >> /etc/shadow
+        else
+          nshent=$(echo -n "${shent}"|awk 'BEGIN{FS=":";OFS=":"} { print $1,"'${_pass}'",$3,$4,$5,$6,$7,$8,$9 }')
+          sed -e s@"${shent}"@"${nshent}"@ /etc/shadow > /etc/shadow.new
+          chmod u+w /etc/shadow
+          mv -f /etc/shadow.new /etc/shadow
+          chmod u-w /etc/shadow
+        fi
       fi
       if [ -n "${_grouplist}" ]; then
         if [ ${_append_flag} == "true" ]; then

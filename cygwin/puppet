@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# wrap win32-native(?) puppet into something that can be fed unixly paths
+args=("$@")
+argc=$#		# the first # is not a comment!
+
+for (( x=0 ; x<= argc; x++ ))
+do
+  # any argument with a / gets path mangled.
+  case ${args[x]} in
+    */*)
+      declare args[$x]=$(cygpath -w $(readlink -f ${args[x]}))
+    ;;
+  esac
+done
+
+# go run puppet
+/cygdrive/c/Program\ Files\ \(x86\)/Puppet\ Labs/Puppet/bin/puppet.bat ${args[@]}

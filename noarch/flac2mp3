@@ -4,7 +4,7 @@
 
 TMPFILE=$(mktemp /tmp/XXXXXX)
 metaflac --list --block-type=VORBIS_COMMENT "${1}" > $TMPFILE
-for TAG in TITLE ARTIST ALBUM DISCNUMBER DATE TRACKNUMBER TRACKTOTAL COMPILATION GROUPING LICENSE COMMENT; do
+for TAG in TITLE ARTIST ALBUM DISCNUMBER DISCTOTAL DATE TRACKNUMBER TRACKTOTAL COMPILATION GROUPING LICENSE COMMENT; do
 	eval $TAG=\`grep ${TAG}= $TMPFILE\|sed s/.\*${TAG}=//\`
 done
 rm $TMPFILE
@@ -17,6 +17,13 @@ metaflac --list --block-type=PICTURE "${1}" > $PICDATA
 PICTYPE=`grep 'MIME type: ' $PICDATA|sed s/.*'MIME type: '//`
 PICDESC=`grep 'description: ' $PICDATA|sed s/.*'description: '//`
 rm $PICDATA
+
+EYED3_VER=$(eyeD3 --version 2>&1 | awk '$1 ~ "eyeD3" { print $2 }')
+if [ "${EYED3_VER}" != "0.6.18" ] ; then
+  EYED3_ARGS="--text-frame "
+else
+  EYED3_ARGS="--set-text-frame="
+fi
 
 WAVFILE=$(mktemp /tmp/XXXXXX)
 flac -d "${1}" -s -f -o ${WAVFILE}
@@ -40,16 +47,24 @@ eyeD3 --add-image=${PICFILE}:FRONT_COVER "${OUTFILE}" > /dev/null
 
 rm $PICFILE
 
-eyeD3 --no-zero-padding --set-text-frame=TPOS:"${DISCNUMBER}" "${OUTFILE}" > /dev/null
+if [ ! -z "${DISCTOTAL}" ] ; then
+  DISCNUMBER="${DISCNUMBER}/${DISCTOTAL}"
+fi
+
+if [ EYED3_VER != "0.6.18" ] ; then
+  eyeD3 ${EYED3_ARGS}TPOS:"${DISCNUMBER}" "${OUTFILE}" > /dev/null
+else
+  eyeD3 --no-zero-padding ${EYED3_ARGS}TPOS:"${DISCNUMBER}" "${OUTFILE}" > /dev/null
+fi
 
 if [ ! -z "${COMPILATION}" ] ; then
   if [ "${COMPILATION}" -eq "1" ]; then
-    eyeD3 --set-text-frame=TCMP:1 "${OUTFILE}" > /dev/null
+    eyeD3 ${EYED3_ARGS}TCMP:1 "${OUTFILE}" > /dev/null
   fi
 fi
 
 if [ ! -z "${GROUPING}" ]; then
-  eyeD3 --set-text-frame=TIT1:"${GROUPING}" "${OUTFILE}" > /dev/null
+  eyeD3 ${EYED3_ARGS}TIT1:"${GROUPING}" "${OUTFILE}" > /dev/null
 fi
 
 if [ ! -z "${LICENSE}" ] ; then
@@ -59,6 +74,12 @@ if [ ! -z "${LICENSE}" ] ; then
   fi
 fi
 
-COMMENT="FLAC2MP3_1.0 ${COMMENT}"
+COMMENT="FLAC2MP3_1.1 ${COMMENT}"
 
-eyeD3 --comment "eng:'':${COMMENT}" "${OUTFILE}" > /dev/null
+if [ EYED3_VER != "0.6.18" ] ; then
+  eyeD3 --comment "${COMMENT}" "${OUTFILE}" > /dev/null
+else
+  eyeD3 --comment "eng:'':${COMMENT}" "${OUTFILE}" > /dev/null
+fi
+
+vbrfix "${OUTFILE}" "${OUTFILE}" > /dev/null

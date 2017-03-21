@@ -145,6 +145,9 @@ env GNUPGHOME=$(pwd)/scratch gpg2 --edit-key "${GPG_EMAIL}"
 # export the resulting stubby key
 env GNUPGHOME=$(pwd)/scratch gpg2 --export-secret-subkeys -a "${GPG_EMAIL}" > ${GPG_EMAIL}-blackone.asc
 
+ekey=""
+akey=""
+
 pkill scdaemon
 rm -rf scratch
 mkdir scratch
@@ -157,3 +160,16 @@ y
 save
 TRUST
 
+ekey=$(env GNUPGHOME=$(pwd)/scratch gpg2 --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':e::::::')
+ekey=${ekey:0:1}
+akey=$(env GNUPGHOME=$(pwd)/scratch gpg2 --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':a::::::')
+akey=${akey:0:1}
+
+printf '\nrun:\ntoggle\nkey %s\nkeytocard\n2\nsave\n\n' ${ekey}
+env GNUPGHOME=$(pwd)/scratch gpg2 --edit-key "${GPG_EMAIL}"
+
+printf '\nrun:\ntoggle\nkey %s\nkeytocard\n2\nsave\n\n' ${akey}
+env GNUPGHOME=$(pwd)/scratch gpg2 --edit-key "${GPG_EMAIL}"
+
+# export the resulting stubby key
+env GNUPGHOME=$(pwd)/scratch gpg2 --export-secret-subkeys -a "${GPG_EMAIL}" > ${GPG_EMAIL}-blacktwo.asc

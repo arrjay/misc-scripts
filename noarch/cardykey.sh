@@ -2,6 +2,7 @@
 
 # shoot any scdaemons
 pkill scdaemon
+pkill gpg-agent
 
 # create new masterkey and stubby keys
 
@@ -149,6 +150,7 @@ ekey=""
 akey=""
 
 pkill scdaemon
+pkill gpg-agent
 rm -rf scratch
 mkdir scratch
 echo 'reader-port "Yubico Yubikey NEO OTP+U2F+CCID 01 00"' > scratch/scdaemon.conf
@@ -173,3 +175,11 @@ env GNUPGHOME=$(pwd)/scratch gpg2 --edit-key "${GPG_EMAIL}"
 
 # export the resulting stubby key
 env GNUPGHOME=$(pwd)/scratch gpg2 --export-secret-subkeys -a "${GPG_EMAIL}" > ${GPG_EMAIL}-blacktwo.asc
+
+pkill scdaemon
+pkill gpg-agent
+rm -rf scratch
+
+# shred the previous exports
+shred ${GPG_EMAIL}-redone.asc
+shred ${GPG_EMAIL}-redtwo.asc

@@ -14,9 +14,9 @@ if [ -z "${GPG_SUBKEY_EXPIRY}" ] ; then GPG_SUBKEY_EXPIRY="18m"; fi
 REVOKER=""
 
 # subkey lengths
-if [ -z "${ENCRYPTION_SUBKEYS_LENGTHS}" ] ; then ENCRYPTION_SUBKEYS_LENGTHS="2048 4096" ; fi
-if [ -z "${AUTH_SUBKEYS_LENGTHS}" ] ; then AUTH_SUBKEYS_LENGTHS="2048 4096" ; fi
-if [ -z "${SIGNING_SUBKEYS_LENGTHS}" ] ; then SIGNING_SUBKEYS_LENGTHS="4096" ; fi
+if [ -z "${ENCRYPTION_SUBKEY_COUNT}" ] ; then ENCRYPTION_SUBKEY_COUNT="2" ; fi
+if [ -z "${AUTH_SUBKEY_COUNT}" ] ; then AUTH_SUBKEY_COUNT="2" ; fi
+if [ -z "${SIGNING_SUBKEY_COUNT}" ] ; then SIGNING_SUBKEY_COUNT="1" ; fi
 
 # if I don't have a master key, make one
 gpg2 --list-keys "${GPG_EMAIL}"
@@ -36,73 +36,43 @@ MASTER_PARAMS
 fi
 
 # create unexpired encryption subkeys
-for l in ${ENCRYPTION_SUBKEYS_LENGTHS} ; do
-  case $l in
-    4096|3072|2048)
-      gpg2 --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:${l}" | grep -q "e::::::"
-      if [ "${?}" -ne 0 ] ; then
-        gpg2 --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
+while [ $(gpg2 --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "e::::::") != ${ENCRYPTION_SUBKEY_COUNT} ] ; do
+  gpg2 --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
 %no-ask-passphrase
 %no-protection
 addkey
 rsa/e
-${l}
+4096
 ${GPG_SUBKEY_EXPIRY}
 save
 SUBKEY_PARAMS
-      fi
-      ;;
-    *)
-      echo "unsupported rsa keylen, skipping..."
-      ;;
-  esac
 done
 
 # ditto authentication
-for l in ${AUTH_SUBKEYS_LENGTHS} ; do
-  case $l in
-    4096|3072|2048)
-      gpg2 --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:${l}" | grep -q "a::::::"
-      if [ "${?}" -ne 0 ] ; then
-        gpg2 --expert --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
+while [ $(gpg2 --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "a::::::") != ${AUTH_SUBKEY_COUNT} ] ; do
+  gpg2 --expert --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
 %no-ask-passphrase
 %no-protection
 addkey
 rsa/*
 =a
-${l}
+4096
 ${GPG_SUBKEY_EXPIRY}
 save
 SUBKEY_PARAMS
-      fi
-      ;;
-    *)
-      echo "unsupported rsa keylen, skipping..."
-      ;;
-  esac
 done
 
 # and signing
-for l in ${SIGNING_SUBKEYS_LENGTHS} ; do
-  case $l in
-    4096|3072|2048)
-      gpg2 --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:${l}" | grep -q "s::::::"
-      if [ "${?}" -ne 0 ] ; then
-        gpg2 --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
+while [ $(gpg2 --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "s::::::") != ${SIGNING_SUBKEY_COUNT} ] ; do
+  gpg2 --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
 %no-ask-passphrase
 %no-protection
 addkey
 rsa/s
-${l}
+4096
 ${GPG_SUBKEY_EXPIRY}
 save
 SUBKEY_PARAMS
-      fi
-      ;;
-    *)
-      echo "unsupported rsa keylen, skipping..."
-      ;;
-  esac
 done
 
 # this holds all the things for the final minified export

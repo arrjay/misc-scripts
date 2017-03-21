@@ -140,11 +140,11 @@ env GNUPGHOME=$(pwd)/scratch gpg2 --edit-key "${GPG_EMAIL}"
 printf '\nrun:\ntoggle\nkey %s\nkeytocard\n2\nsave\n\n' ${ekey}
 env GNUPGHOME=$(pwd)/scratch gpg2 --edit-key "${GPG_EMAIL}"
 
-printf '\nrun:\ntoggle\nkey %s\nkeytocard\n2\nsave\n\n' ${akey}
+printf '\nrun:\ntoggle\nkey %s\nkeytocard\n3\nsave\n\n' ${akey}
 env GNUPGHOME=$(pwd)/scratch gpg2 --edit-key "${GPG_EMAIL}"
 
 # export the resulting stubby key
-env GNUPGHOME=$(pwd)/scratch gpg2 --export-secret-subkeys -a "${GPG_EMAIL}" > ${GPG_EMAIL}-blackone.asc
+env GNUPGHOME=$(pwd)/scratch gpg2 --export-secret-subkeys "${GPG_EMAIL}" > ${GPG_EMAIL}-blackone.gpg
 
 ekey=""
 akey=""
@@ -170,11 +170,11 @@ akey=${akey:0:1}
 printf '\nrun:\ntoggle\nkey %s\nkeytocard\n2\nsave\n\n' ${ekey}
 env GNUPGHOME=$(pwd)/scratch gpg2 --edit-key "${GPG_EMAIL}"
 
-printf '\nrun:\ntoggle\nkey %s\nkeytocard\n2\nsave\n\n' ${akey}
+printf '\nrun:\ntoggle\nkey %s\nkeytocard\n3\nsave\n\n' ${akey}
 env GNUPGHOME=$(pwd)/scratch gpg2 --edit-key "${GPG_EMAIL}"
 
 # export the resulting stubby key
-env GNUPGHOME=$(pwd)/scratch gpg2 --export-secret-subkeys -a "${GPG_EMAIL}" > ${GPG_EMAIL}-blacktwo.asc
+env GNUPGHOME=$(pwd)/scratch gpg2 --export-secret-subkeys "${GPG_EMAIL}" > ${GPG_EMAIL}-blacktwo.gpg
 
 pkill scdaemon
 pkill gpg-agent
@@ -183,3 +183,33 @@ rm -rf scratch
 # shred the previous exports
 shred ${GPG_EMAIL}-redone.asc
 shred ${GPG_EMAIL}-redtwo.asc
+
+# import the second key and grab everything in it
+mkdir scratch
+env GNUPGHOME=$(pwd)/scratch gpg2 --import "${GPG_EMAIL}-blacktwo.gpg"
+env GNUPGHOME=$(pwd)/scratch gpg2 --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << TRUST
+trust
+5
+y
+save
+TRUST
+
+pubkeys="0x$(env GNUPGHOME=$(pwd)/scratch gpg2 --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep ':e::::::' | cut -d: -f5)!"
+
+# now import the first key
+env GNUPGHOME=$(pwd)/scratch gpg2 --import "${GPG_EMAIL}-blackone.gpg"
+
+# and grab all the other keys
+for l in $(env GNUPGHOME=$(pwd)/scratch gpg2 --list-keys --with-colons|grep 'sub:u:'|cut -d: -f5,12 | grep -E '(a|s)$') ; do
+  pubkeys="${pubkeys} 0x${l%:*}!"
+done
+
+env GNUPGHOME=$(pwd)/scratch gpg2 --export -a ${pubkeys} > ${GPG_EMAIL}-upload.asc
+
+# now assemble a legacy gpg keyring...
+mkdir one
+mkdir two
+( cd one && gpgsplit ../"${GPG_EMAIL}-blackone.gpg" )
+( cd two && gpgsplit ../"${GPG_EMAIL}-blacktwo.gpg" )
+fdupes -dN one two
+cat one/* two/* > "${GPG_EMAIL}-gpg14.gpg"

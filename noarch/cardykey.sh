@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# shoot any scdaemons
+pkill scdaemon
+
 # create new masterkey and stubby keys
 
 # display name
@@ -75,36 +78,82 @@ save
 SUBKEY_PARAMS
 done
 
-# this holds all the things for the final minified export
-subs=""
+# so, the theory here is we'll order subkeys and load by expiry - the first export contains the last to expire
+# and types s/e/a. the second blob contains the next e/a keys. the c key doesn't get exported until we backup the
+# whole thing.
 
-# export signing pubkey for sign checkers
-signs=$(gpg2 --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:" | grep "s::::::" | cut -d: -f5)
-for s in ${signs} ; do
-  subs="${s}! ${subs}"
-  gpg2 --export --armor --export-options export-minimal --no-emit-version "${s}!" > "${GPG_EMAIL}-signing-${s}.asc"
+# track loaded keys here
+loaded=""
+_one=""
+_two=""
+one=""
+two=""
+
+for l in e s a ; do
+_one="${_one} $(gpg2 --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep "${l}::::::" |awk -F: '{ key[$7]=$5 } END { asort(key) ; print key[1] }')"
+_two="${_two} $(gpg2 --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep "${l}::::::" |awk -F: '{ key[$7]=$5 } END { asort(key) ; print key[2] }')"
 done
 
-# export auth pubkeys as ssh pubkeys
-auths=$(gpg2 --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:" | grep "a::::::" | cut -d: -f5)
-for a in ${auths} ; do
-  subs="${a}! ${subs}"
-  gpg2 --export --armor --export-options export-minimal --no-emit-version "${a}!" > "${GPG_EMAIL}-auth-${a}.asc"
-  gpg2 --export --export-options export-minimal --no-emit-version "${a}!" | openpgp2ssh "${a}" > "${GPG_EMAIL}-auth-${a}.pub"
+for k in ${_one} ; do
+  one="${one} 0x${k}!"
+done
+for k in ${_two} ; do
+  two="${two} ${k}!"
 done
 
-# export largest crypt key for decrypters
-crypts=$(gpg2 --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:" | grep "e::::::" | sort | tail -n1 | cut -d: -f5)
-for c in ${crypts} ; do
-  subs="${c}! ${subs}"
-  gpg2 --export --armor --export-options export-minimal --no-emit-version "${c}!" > "${GPG_EMAIL}-crypt-${c}.asc"
-done
+loaded="${one} ${two}"
 
-# make a combo key for that
-mkdir scratch
-env GNUPGHOME=scratch gpg2 --import "${GPG_EMAIL}"-*.asc
-env GNUPGHOME=scratch gpg2 --export -a "${GPG_EMAIL}" > "${GPG_EMAIL}-minified.asc"
+# export the private keys to files
+gpg2 --export-secret-subkeys -a ${one} > ${GPG_EMAIL}-redone.asc
+gpg2 --export-secret-subkeys -a ${two} > ${GPG_EMAIL}-redtwo.asc
+
 rm -rf scratch
+mkdir scratch
+echo 'reader-port "Yubico Yubikey NEO OTP+U2F+CCID 01 00"' > scratch/scdaemon.conf
+env GNUPGHOME=$(pwd)/scratch gpg2 --import "${GPG_EMAIL}-redone.asc"
+env GNUPGHOME=$(pwd)/scratch gpg2 --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << TRUST
+trust
+5
+y
+save
+TRUST
 
-# dump all da pubkeys
-gpg2 --export -a "${GPG_EMAIL}" > "${GPG_EMAIL}-full.asc"
+# we need to actually get the order the subkeys were written in for card writing
+ekey=$(env GNUPGHOME=$(pwd)/scratch gpg2 --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':e::::::')
+ekey=${ekey:0:1}
+akey=$(env GNUPGHOME=$(pwd)/scratch gpg2 --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':a::::::')
+akey=${akey:0:1}
+skey=$(env GNUPGHOME=$(pwd)/scratch gpg2 --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':s::::::')
+skey=${skey:0:1}
+
+# now that we know which key is which, push to card. you will be prompted for the admin pin.
+printf '\nrun:\ntoggle\nkey %s\nkeytocard\n1\nsave\n\n' ${skey}
+env GNUPGHOME=$(pwd)/scratch gpg2 --edit-key "${GPG_EMAIL}"
+#toggle
+#key ${skey}
+#keytocard
+#1
+#save
+#S2CARD
+
+printf '\nrun:\ntoggle\nkey %s\nkeytocard\n2\nsave\n\n' ${ekey}
+env GNUPGHOME=$(pwd)/scratch gpg2 --edit-key "${GPG_EMAIL}"
+
+printf '\nrun:\ntoggle\nkey %s\nkeytocard\n2\nsave\n\n' ${akey}
+env GNUPGHOME=$(pwd)/scratch gpg2 --edit-key "${GPG_EMAIL}"
+
+# export the resulting stubby key
+env GNUPGHOME=$(pwd)/scratch gpg2 --export-secret-subkeys -a "${GPG_EMAIL}" > ${GPG_EMAIL}-blackone.asc
+
+pkill scdaemon
+rm -rf scratch
+mkdir scratch
+echo 'reader-port "Yubico Yubikey NEO OTP+U2F+CCID 01 00"' > scratch/scdaemon.conf
+env GNUPGHOME=$(pwd)/scratch gpg2 --import "${GPG_EMAIL}-redtwo.asc"
+env GNUPGHOME=$(pwd)/scratch gpg2 --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << TRUST
+trust
+5
+y
+save
+TRUST
+

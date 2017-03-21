@@ -9,6 +9,9 @@ if [ -z "${GPG_EMAIL}" ] ; then GPG_EMAIL="gpg@bad.id" ; fi
 # expiry
 if [ -z "${GPG_EXPIRY}" ] ; then GPG_EXPIRY="5y"; fi
 if [ -z "${GPG_SUBKEY_EXPIRY}" ] ; then GPG_SUBKEY_EXPIRY="18m"; fi
+# revocation
+#REVOKER="Revoker: 1:BA8571970E65816AFFB15FFEBFC06D3971AAB113 sensitive"
+REVOKER=""
 
 # subkey lengths
 if [ -z "${ENCRYPTION_SUBKEYS_LENGTHS}" ] ; then ENCRYPTION_SUBKEYS_LENGTHS="2048 4096" ; fi
@@ -27,6 +30,8 @@ Key-Usage: cert
 Name-Real: ${GPG_NAME}
 Name-Email: ${GPG_EMAIL}
 Expire-Date: ${GPG_EXPIRY}
+Preferences: SHA512 SHA384 SHA256 SHA224 AES256 AES192 AES CAST5 ZLIB BZIP2 ZIP Uncompressed
+${REVOKER}
 MASTER_PARAMS
 fi
 

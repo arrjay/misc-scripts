@@ -42,16 +42,16 @@ random_setup () {
 }
 
 filesystems () {
-  local base part lastpart
-  base="${1}"
+  local base part lastpart mountpt
+  base="${1}" ; mountpt="${2}"
   # find last partition to create as filesystem
   for part in "/dev/mapper/${base}"[0-9]* ; do
     lastpart="${part}"
   done
   # format, mount
   mkfs.ext4 "${lastpart}"
-  mkdir -p "${fsmount}"
-  mount "${lastpart}" "${fsmount}"
+  mkdir -p "${mountpt}"
+  mount "${lastpart}" "${mountpt}"
   # if the last partition is not the first partition, format the first partition as swap and activate it, deactivating other swaps
   [ "${lastpart}" != "/dev/mapper/${base}-1" ] && {
     mkswap "/dev/mapper/${base}1"
@@ -60,10 +60,21 @@ filesystems () {
   }
 }
 
+files () {
+  local mountpt
+  mountpt="${1}"
+  # create replacement /tmp
+  mkdir -p "${mountpt}/tmp"
+  chown root:root "${mountpt}/tmp"
+  chmod 1777 "${mountpt}/tmp"
+  mount -o bind "${mountpt}/tmp" "/tmp"
+}
+
 [ "${fsdev}" ] || { printf 'need to supply DEVICE envvar\n' 1>&2 ; exit 1 ; }
 [ "${force_overwrite}" == "YES" ] || { printf 'need to supply envvar to run script ;)\n' 1>&2 ; exit 1 ; }
 
 wipeall "${fsdev}"
 partition "${fsdev}"
 basedev=$(random_setup "${fsdev}")
-filesystems "${basedev}"
+filesystems "${basedev}" "${fsmount}"
+files "${fsmount}"

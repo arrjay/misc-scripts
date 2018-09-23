@@ -68,6 +68,10 @@ files () {
   chown root:root "${mountpt}/tmp"
   chmod 1777 "${mountpt}/tmp"
   mount -o bind "${mountpt}/tmp" "/tmp"
+  # create potential /home
+  mkdir -p "${mountpt}/home"
+  chown root:root "${mountpt}/home"
+  chmod 755 "${mountpt}/home"
 }
 
 [ "${fsdev}" ] || { printf 'need to supply DEVICE envvar\n' 1>&2 ; exit 1 ; }

@@ -41,7 +41,7 @@ ${REVOKER}
 MASTER_PARAMS
 
 # create unexpired encryption subkeys
-while [ $(gpgwrap --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "e::::::") != ${ENCRYPTION_SUBKEY_COUNT} ] ; do
+while [ "$(gpgwrap --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "e::::::")" != "${ENCRYPTION_SUBKEY_COUNT}" ] ; do
   gpgwrap --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
 %no-ask-passphrase
 %no-protection
@@ -54,7 +54,7 @@ SUBKEY_PARAMS
 done
 
 # ditto authentication
-while [ $(gpgwrap --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "a::::::") != ${AUTH_SUBKEY_COUNT} ] ; do
+while [ "$(gpgwrap --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "a::::::")" != "${AUTH_SUBKEY_COUNT}" ] ; do
   gpgwrap --expert --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
 %no-ask-passphrase
 %no-protection
@@ -68,7 +68,7 @@ SUBKEY_PARAMS
 done
 
 # and signing
-while [ $(gpgwrap --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "s::::::") != ${SIGNING_SUBKEY_COUNT} ] ; do
+while [ "$(gpgwrap --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "s::::::")" != "${SIGNING_SUBKEY_COUNT}" ] ; do
   gpgwrap --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
 %no-ask-passphrase
 %no-protection
@@ -106,8 +106,8 @@ done
 loaded="${one} ${two}"
 
 # export the private keys to files
-gpgwrap --export-secret-subkeys -a ${one} > ${GPG_EMAIL}-redone.asc
-gpgwrap --export-secret-subkeys -a ${two} > ${GPG_EMAIL}-redtwo.asc
+gpgwrap --export-secret-subkeys -a "${one}" > ${GPG_EMAIL}-redone.asc
+gpgwrap --export-secret-subkeys -a "${two}" > ${GPG_EMAIL}-redtwo.asc
 
 rm -rf scratch
 mkdir scratch
@@ -129,7 +129,7 @@ skey=$(GNUPGHOME=$(pwd)/scratch gpgwrap --list-keys --with-colons 2>/dev/null | 
 skey=${skey:0:1}
 
 # now that we know which key is which, push to card. you will be prompted for the admin pin.
-printf '\nrun:\ntoggle\nkey %s\nkeytocard\n1\nsave\n\n' ${skey}
+printf '\nrun:\ntoggle\nkey %s\nkeytocard\n1\nsave\n\n' "${skey}"
 GNUPGHOME=$(pwd)/scratch gpgwrap --edit-key "${GPG_EMAIL}"
 #toggle
 #key ${skey}
@@ -138,10 +138,10 @@ GNUPGHOME=$(pwd)/scratch gpgwrap --edit-key "${GPG_EMAIL}"
 #save
 #S2CARD
 
-printf '\nrun:\ntoggle\nkey %s\nkeytocard\n2\nsave\n\n' ${ekey}
+printf '\nrun:\ntoggle\nkey %s\nkeytocard\n2\nsave\n\n' "${ekey}"
 GNUPGHOME=$(pwd)/scratch gpgwrap --edit-key "${GPG_EMAIL}"
 
-printf '\nrun:\ntoggle\nkey %s\nkeytocard\n3\nsave\n\n' ${akey}
+printf '\nrun:\ntoggle\nkey %s\nkeytocard\n3\nsave\n\n' "${akey}"
 GNUPGHOME=$(pwd)/scratch gpgwrap --edit-key "${GPG_EMAIL}"
 
 # export the resulting stubby key
@@ -168,10 +168,10 @@ ekey=${ekey:0:1}
 akey=$(GNUPGHOME=$(pwd)/scratch gpgwrap --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':a::::::')
 akey=${akey:0:1}
 
-printf '\nrun:\ntoggle\nkey %s\nkeytocard\n2\nsave\n\n' ${ekey}
+printf '\nrun:\ntoggle\nkey %s\nkeytocard\n2\nsave\n\n' "${ekey}"
 GNUPGHOME=$(pwd)/scratch gpgwrap --edit-key "${GPG_EMAIL}"
 
-printf '\nrun:\ntoggle\nkey %s\nkeytocard\n3\nsave\n\n' ${akey}
+printf '\nrun:\ntoggle\nkey %s\nkeytocard\n3\nsave\n\n' "${akey}"
 GNUPGHOME=$(pwd)/scratch gpgwrap --edit-key "${GPG_EMAIL}"
 
 # export the resulting stubby key
@@ -182,8 +182,8 @@ pkill gpg-agent
 rm -rf scratch
 
 # shred the previous exports
-shred ${GPG_EMAIL}-redone.asc
-shred ${GPG_EMAIL}-redtwo.asc
+shred "${GPG_EMAIL}-redone.asc"
+shred "${GPG_EMAIL}-redtwo.asc"
 
 # import the second key and grab everything in it
 mkdir scratch
@@ -205,7 +205,7 @@ for l in $(GNUPGHOME=$(pwd)/scratch gpgwrap --list-keys --with-colons|grep 'sub:
   pubkeys="${pubkeys} 0x${l%:*}!"
 done
 
-GNUPGHOME=$(pwd)/scratch gpgwrap --export -a ${pubkeys} > ${GPG_EMAIL}-upload.asc
+GNUPGHOME=$(pwd)/scratch gpgwrap --export -a "${pubkeys}" > "${GPG_EMAIL}-upload.asc"
 
 # now assemble a legacy gpg keyring...
 mkdir one

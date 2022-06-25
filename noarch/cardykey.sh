@@ -6,7 +6,7 @@ pkill gpg-agent
 
 # if I have a gpg2, prefer that.
 gpgwrap () { gpg "${@}" ; }
-type gpg2 && gpgwrap () { gpg2 "${@}" ; }
+type gpg2 > /dev/null 2>&1 && gpgwrap () { gpg2 "${@}" ; }
 
 # create new masterkey and stubby keys
 
@@ -21,7 +21,7 @@ if [ -z "${GPG_SUBKEY_EXPIRY}" ] ; then GPG_SUBKEY_EXPIRY="18m"; fi
 #REVOKER="Revoker: 1:BA8571970E65816AFFB15FFEBFC06D3971AAB113 sensitive"
 REVOKER=""
 
-# subkey lengths
+# subkey counts
 if [ -z "${ENCRYPTION_SUBKEY_COUNT}" ] ; then ENCRYPTION_SUBKEY_COUNT="2" ; fi
 if [ -z "${AUTH_SUBKEY_COUNT}" ] ; then AUTH_SUBKEY_COUNT="2" ; fi
 if [ -z "${SIGNING_SUBKEY_COUNT}" ] ; then SIGNING_SUBKEY_COUNT="1" ; fi
@@ -92,8 +92,8 @@ one=""
 two=""
 
 for l in e s a ; do
-_one="${_one} $(gpgwrap --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep "${l}::::::" |awk -F: '{ key[$7]=$5 } END { asort(key) ; print key[1] }')"
-_two="${_two} $(gpgwrap --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep "${l}::::::" |awk -F: '{ key[$7]=$5 } END { asort(key) ; print key[2] }')"
+_one="${_one} $(gpgwrap --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep "${l}::::::" |gawk -F: '{ key[$7]=$5 } END { asort(key) ; print key[1] }')"
+_two="${_two} $(gpgwrap --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep "${l}::::::" |gawk -F: '{ key[$7]=$5 } END { asort(key) ; print key[2] }')"
 done
 
 for k in ${_one} ; do

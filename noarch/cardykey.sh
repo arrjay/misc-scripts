@@ -5,26 +5,69 @@ pkill scdaemon
 pkill gpg-agent
 
 # if I have a gpg2, prefer that.
-gpgwrap () { gpg "${@}" ; }
-type gpg2 > /dev/null 2>&1 && gpgwrap () { gpg2 "${@}" ; }
-
-# create new masterkey and stubby keys
+gpgwrap () { command gpg "${@}" ; }
+type gpg2 > /dev/null 2>&1 && gpgwrap () { command gpg2 "${@}" ; }
 
 # display name
-if [ -z "${GPG_NAME}" ] ; then GPG_NAME="RJ Bergeron" ; fi
+GPG_NAME="RJ Bergeron"
 # email
-if [ -z "${GPG_EMAIL}" ] ; then GPG_EMAIL="gpg@bad.id" ; fi
+GPG_EMAIL="gpg@bad.id"
 # expiry
-if [ -z "${GPG_EXPIRY}" ] ; then GPG_EXPIRY="5y"; fi
-if [ -z "${GPG_SUBKEY_EXPIRY}" ] ; then GPG_SUBKEY_EXPIRY="18m"; fi
+GPG_EXPIRY="5y"
+GPG_SUBKEY_EXPIRY="18m"
 # revocation
 #REVOKER="Revoker: 1:BA8571970E65816AFFB15FFEBFC06D3971AAB113 sensitive"
 REVOKER=""
 
 # subkey counts
-if [ -z "${ENCRYPTION_SUBKEY_COUNT}" ] ; then ENCRYPTION_SUBKEY_COUNT="2" ; fi
-if [ -z "${AUTH_SUBKEY_COUNT}" ] ; then AUTH_SUBKEY_COUNT="2" ; fi
-if [ -z "${SIGNING_SUBKEY_COUNT}" ] ; then SIGNING_SUBKEY_COUNT="1" ; fi
+ENCRYPTION_SUBKEY_COUNT="2"
+AUTH_SUBKEY_COUNT="2"
+SIGNING_SUBKEY_COUNT="1"
+
+# option processing
+_ext_opts=""
+
+selfhelp () {
+  {
+    printf '%s\n' "attempt to create a gpg key set for practical use."
+  } >&2
+}
+
+while getopts "e:n:x:s:r:c:a:g:fh" _opt ; do
+  case "${_opt}" in
+    e) GPG_EMAIL="${OPTARG}" ;;
+    n) GPG_NAME="${OPTARG}" ;;
+    x) GPG_EXPIRY="${OPTARG}" ;;
+    s) GPG_SUBKEY_EXPIRY="${OPTARG}" ;;
+    r) REVOKER="${OPTARG}" ;;
+    c) ENCRYPTION_SUBKEY_COUNT="${OPTARG}" ;;
+    a) AUTH_SUBKEY_COUNT="${OPTARG}" ;;
+    g) SIGNING_SUBKEY_COUNT="${OPTARG}" ;;
+    *) selfhelp ;;
+  esac
+done
+
+# create new working directory for gpg
+gpgscratch="$(mktemp -d)"
+my_gpg () { GNUPGHOME="${gpgscratch}" gpgwrap "${@}" ; }
+# write a scratch config for that gpg as well.
+cat <<GPGCONF >"${gpgscratch}/gpg.conf"
+# from https://ngkz.github.io/2020/01/gpg-hardening/
+cert-digest-algo SHA512
+personal-cipher-preferences AES256 AES192 AES CAST5
+personal-digest-preferences SHA512 SHA384 SHA256 SHA224
+default-preference-list SHA512 SHA384 SHA256 SHA224 AES256 AES192 AES CAST5 ZLIB BZIP2 ZIP Uncompressed
+weak-digest SHA1
+disable-cipher-algo 3DES
+s2k-cipher-algo AES256
+s2k-digest-algo SHA-512
+s2k-count 65011712
+keyid-format none
+with-subkey-fingerprint
+GPGCONF
+
+# check existing gpg chain for a master key
+# gpgwrap --list-keys "${GPG_EMAIL}" ||
 
 # if I don't have a master key, make one
 gpgwrap --list-keys "${GPG_EMAIL}" || gpgwrap --gen-key --batch << MASTER_PARAMS

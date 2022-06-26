@@ -208,7 +208,7 @@ printf '\nrun:\ntoggle\nkey %s\nkeytocard\n3\nsave\n\n' "${akey}"
 cardgpg --edit-key "${GPG_EMAIL}"
 
 # export the resulting stubby key
-cardgpg --export-secret-subkeys "${GPG_EMAIL}" > "${GPG_EMAIL}-blackone.gpg"
+cardgpg --export-secret-subkeys "${GPG_EMAIL}" > "${GPG_EMAIL}-new_subkeys.gpg"
 
 ekey=""
 akey=""
@@ -232,7 +232,12 @@ done
 cardgpg --export -a "${pubkeys[@]}" > "${GPG_EMAIL}-upload.asc"
 
 # now assemble a legacy gpg keyring...
-mkdir one
-( cd one && gpgsplit ../"${GPG_EMAIL}-blackone.gpg" )
-fdupes -dN one
-cat one/* > "${GPG_EMAIL}-gpg14.gpg"
+# NOTE: I've...not tested if this still _works_.
+
+mkdir "${sc_temp}/one"
+resdir="$(pwd)"
+( cd "${sc_temp}/one" && gpgsplit "${resdir}/${GPG_EMAIL}-new_subkeys.gpg" )
+fdupes -dN "${sc_temp}/one"
+
+# concatenate the fixed parts back in for a gpg1.4-ish key.
+cat "${sc_temp}/one/"* > "${GPG_EMAIL}-gpg14.gpg"

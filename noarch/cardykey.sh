@@ -214,11 +214,6 @@ akey=""
 pkill scdaemon
 pkill gpg-agent
 
-pkill scdaemon
-pkill gpg-agent
-
-# shred the previous exports
-#shred "${GPG_EMAIL}-redone.asc"
 pubkeys=()
 
 # and grab all the other keys

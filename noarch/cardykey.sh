@@ -105,16 +105,16 @@ case $(gpgwrap --list-secret-keys --with-colons --with-fingerprint --with-finger
   } | my_gpg --gen-key --batch
  ;;
  1) # copy the master key to a scratch keychain
-   echo "copying key to scratch keychain"
+  gpgwrap --export-secret-keys "${GPG_EMAIL}" | my_gpg --import
  ;;
  *) # panic
-   exit 1
+  exit 1
  ;;
 esac
 
 # create unexpired encryption subkeys
-while [ "$(gpgwrap --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "e::::::")" != "${ENCRYPTION_SUBKEY_COUNT}" ] ; do
-  gpgwrap --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
+while [ "$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "e::::::")" != "${ENCRYPTION_SUBKEY_COUNT}" ] ; do
+  my_gpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
 %no-ask-passphrase
 %no-protection
 addkey
@@ -126,8 +126,8 @@ SUBKEY_PARAMS
 done
 
 # ditto authentication
-while [ "$(gpgwrap --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "a::::::")" != "${AUTH_SUBKEY_COUNT}" ] ; do
-  gpgwrap --expert --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
+while [ "$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "a::::::")" != "${AUTH_SUBKEY_COUNT}" ] ; do
+  my_gpg --expert --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
 %no-ask-passphrase
 %no-protection
 addkey
@@ -140,8 +140,8 @@ SUBKEY_PARAMS
 done
 
 # and signing
-while [ "$(gpgwrap --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "s::::::")" != "${SIGNING_SUBKEY_COUNT}" ] ; do
-  gpgwrap --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
+while [ "$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "s::::::")" != "${SIGNING_SUBKEY_COUNT}" ] ; do
+  my_gpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
 %no-ask-passphrase
 %no-protection
 addkey

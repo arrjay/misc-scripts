@@ -48,6 +48,7 @@ selfhelp () {
   {
     printf '%s\n' "attempt to create a gpg key set for practical use."
   } >&2
+  exit 0
 }
 
 while getopts "e:n:x:s:r:c:a:g:fh" _opt ; do
@@ -83,22 +84,33 @@ keyid-format none
 with-subkey-fingerprint
 GPGCONF
 
-# check existing gpg chain for a master key
-# gpgwrap --list-keys "${GPG_EMAIL}" ||
-
-# if I don't have a master key, make one
-gpgwrap --list-keys "${GPG_EMAIL}" || gpgwrap --gen-key --batch << MASTER_PARAMS
-%no-ask-passphrase
-%no-protection
-Key-Type: rsa
-Key-Length: 4096
-Key-Usage: cert
-Name-Real: ${GPG_NAME}
-Name-Email: ${GPG_EMAIL}
-Expire-Date: ${GPG_EXPIRY}
-Preferences: SHA512 SHA384 SHA256 SHA224 AES256 AES192 AES CAST5 ZLIB BZIP2 ZIP Uncompressed
-${REVOKER}
-MASTER_PARAMS
+# check existing gpg chain for a master key with secret
+case $(gpgwrap --list-secret-keys --with-colons --with-fingerprint --with-fingerprint "${GPG_EMAIL}" | \
+ awk -F: 'BEGIN { c=0 } END { print c } ($1 == "sec" && $2 == "u" && $9 == "u" && $15 == "+") { c++ }') in
+ 0) # create a key on the scratch keychain
+ # if I don't have a master key, make one
+  {
+    printf '%s\n' \
+     "%no-ask-passphrase" \
+     "%no-protection" \
+     "Key-Type: rsa" \
+     "Key-Length: 4096" \
+     "Key-Usage: cert"
+    printf 'Name-Real: %s\n' "${GPG_NAME}"
+    printf 'Name-Email: %s\n' "${GPG_EMAIL}"
+    printf 'Expire-Date: %s\n' "${GPG_EXPIRY}"
+    printf 'Preferences: %s\n' \
+     "SHA512 SHA384 SHA256 SHA224 AES256 AES192 AES CAST5 ZLIB BZIP2 ZIP Uncompressed"
+    [[ -n "${REVOKER}" ]] && printf 'Revoker: %s sensitive\n' "${REVOKER}"
+  } | my_gpg --gen-key --batch
+ ;;
+ 1) # copy the master key to a scratch keychain
+   echo "copying key to scratch keychain"
+ ;;
+ *) # panic
+   exit 1
+ ;;
+esac
 
 # create unexpired encryption subkeys
 while [ "$(gpgwrap --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "e::::::")" != "${ENCRYPTION_SUBKEY_COUNT}" ] ; do

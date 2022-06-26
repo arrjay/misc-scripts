@@ -148,7 +148,7 @@ _one=""
 one=""
 
 for l in e s a ; do
-_one="${_one} $(gpgwrap --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep "${l}::::::" |gawk -F: '{ key[$7]=$5 } END { asort(key) ; print key[1] }')"
+_one="${_one} $(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep "${l}::::::" |gawk -F: '{ key[$7]=$5 } END { asort(key) ; print key[1] }')"
 done
 
 for k in ${_one} ; do
@@ -158,7 +158,7 @@ done
 loaded="${one}"
 
 # export the private keys to files
-gpgwrap --export-secret-subkeys -a "${one}" > "${GPG_EMAIL}-redone.asc"
+my_gpg --export-secret-subkeys -a "${one}" > "${GPG_EMAIL}-redone.asc"
 
 rm -rf scratch
 mkdir scratch

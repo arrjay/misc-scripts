@@ -147,10 +147,10 @@ _one=() # grab key handles from gpg output
 one=()  # reformed key handles for gpg export call
 
 for l in e s a ; do
-_one=("${_one[@]}" "$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep "${l}::::::" |gawk -F: '{ key[$7]=$5 } END { asort(key) ; print key[1] }')")
+  _one=("${_one[@]}" "$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep "${l}::::::" |gawk -F: '{ key[$7]=$5 } END { asort(key) ; print key[1] }')")
 done
 
-for k in ${_one} ; do
+for k in "${_one[@]}" ; do
   one=("${one[@]}" "0x${k}!")
 done
 

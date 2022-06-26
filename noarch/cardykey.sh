@@ -60,6 +60,9 @@ while getopts "e:n:x:s:r:fh" _opt ; do
   esac
 done
 
+# track if we made a key or not (if we made a key, we should export the certifying element)
+_made_master=0
+
 # create new working directory for gpg
 gpgscratch="$(mktemp -d)"
 my_gpg () { GNUPGHOME="${gpgscratch}" gpgwrap "${@}" ; }
@@ -98,6 +101,7 @@ case $(gpgwrap --list-secret-keys --with-colons --with-fingerprint --with-finger
      "SHA512 SHA384 SHA256 SHA224 AES256 AES192 AES CAST5 ZLIB BZIP2 ZIP Uncompressed"
     [[ -n "${REVOKER}" ]] && printf 'Revoker: %s sensitive\n' "${REVOKER}"
   } | my_gpg --gen-key --batch
+  _made_master=1
  ;;
  1) # copy the master key to a scratch keychain
   gpgwrap --export-secret-keys "${GPG_EMAIL}" | my_gpg --import
@@ -146,24 +150,32 @@ SUBKEY_PARAMS
 # whole thing.
 
 # track loaded keys here
-_one=() # grab key handles from gpg output
 one=()  # reformed key handles for gpg export call
 
 for l in e s a ; do
-  _one=("${_one[@]}" "$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep "${l}::::::" |gawk -F: '{ key[$7]=$5 } END { asort(key) ; print key[1] }')")
+  one=(
+    "${one[@]}"
+    "0x$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | \
+     grep "sub:u:4096" | grep "${l}::::::" | \
+     gawk -F: '{ key[$7]=$5 } END { asort(key) ; print key[1] }')!"
+  )
 done
 
-for k in "${_one[@]}" ; do
-  one=("${one[@]}" "0x${k}!")
-done
+certgrip="0x$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | \
+           grep "pub:u:4096" | \
+           gawk -F: '{ print $5 }')!"
 
-# export the private keys to files
-my_gpg --export-secret-subkeys -a "${one[@]}" > "${GPG_EMAIL}-redone.asc"
+# export the certifying key to a file in pwd if we made that.
+[[ "${_made_master}" -eq 1 ]] && my_gpg --export-secret-keys -a "${certgrip}" > "${GPG_EMAIL}-certify.asc"
 
+# export the secret subkeys to our scratch dir
+my_gpg --export-secret-subkeys -a "${one[@]}" > "${sc_temp}/${GPG_EMAIL}-redone.asc"
+
+# drive _another_ gpg to wire up the card.
 cardkeydir=$(mktemp -d)
 cardgpg () { GNUPGHOME="${cardkeydir}" gpgwrap "${@}" ; }
 # echo 'reader-port "Yubico Yubikey NEO OTP+U2F+CCID 01 00"' > scratch/scdaemon.conf
-cardgpg --import "${GPG_EMAIL}-redone.asc"
+cardgpg --import "${sc_temp}/${GPG_EMAIL}-redone.asc"
 cardgpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << TRUST
 trust
 5
@@ -206,17 +218,18 @@ pkill gpg-agent
 
 pkill scdaemon
 pkill gpg-agent
-rm -rf scratch
 
 # shred the previous exports
-shred "${GPG_EMAIL}-redone.asc"
+#shred "${GPG_EMAIL}-redone.asc"
+pubkeys=()
 
 # and grab all the other keys
 for l in $(cardgpg --list-keys --with-colons|grep 'sub:u:'|cut -d: -f5,12 | grep -E '(a|s)$') ; do
-  pubkeys="${pubkeys} 0x${l%:*}!"
+  pubkeys=("${pubkeys[@]}" "0x${l%:*}!")
 done
 
-cardgpg --export -a "${pubkeys}" > "${GPG_EMAIL}-upload.asc"
+# export to pwd for upload-ability
+cardgpg --export -a "${pubkeys[@]}" > "${GPG_EMAIL}-upload.asc"
 
 # now assemble a legacy gpg keyring...
 mkdir one

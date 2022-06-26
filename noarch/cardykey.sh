@@ -145,27 +145,20 @@ SUBKEY_PARAMS
 # track loaded keys here
 loaded=""
 _one=""
-_two=""
 one=""
-two=""
 
 for l in e s a ; do
 _one="${_one} $(gpgwrap --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep "${l}::::::" |gawk -F: '{ key[$7]=$5 } END { asort(key) ; print key[1] }')"
-_two="${_two} $(gpgwrap --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep "${l}::::::" |gawk -F: '{ key[$7]=$5 } END { asort(key) ; print key[2] }')"
 done
 
 for k in ${_one} ; do
   one="${one} 0x${k}!"
 done
-for k in ${_two} ; do
-  two="${two} ${k}!"
-done
 
-loaded="${one} ${two}"
+loaded="${one}"
 
 # export the private keys to files
 gpgwrap --export-secret-subkeys -a "${one}" > "${GPG_EMAIL}-redone.asc"
-gpgwrap --export-secret-subkeys -a "${two}" > "${GPG_EMAIL}-redtwo.asc"
 
 rm -rf scratch
 mkdir scratch
@@ -210,30 +203,6 @@ akey=""
 
 pkill scdaemon
 pkill gpg-agent
-rm -rf scratch
-mkdir scratch
-echo 'reader-port "Yubico Yubikey NEO OTP+U2F+CCID 01 00"' > scratch/scdaemon.conf
-GNUPGHOME=$(pwd)/scratch gpgwrap --import "${GPG_EMAIL}-redtwo.asc"
-GNUPGHOME=$(pwd)/scratch gpgwrap --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << TRUST
-trust
-5
-y
-save
-TRUST
-
-ekey=$(GNUPGHOME=$(pwd)/scratch gpgwrap --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':e::::::')
-ekey=${ekey:0:1}
-akey=$(GNUPGHOME=$(pwd)/scratch gpgwrap --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':a::::::')
-akey=${akey:0:1}
-
-printf '\nrun:\ntoggle\nkey %s\nkeytocard\n2\nsave\n\n' "${ekey}"
-GNUPGHOME=$(pwd)/scratch gpgwrap --edit-key "${GPG_EMAIL}"
-
-printf '\nrun:\ntoggle\nkey %s\nkeytocard\n3\nsave\n\n' "${akey}"
-GNUPGHOME=$(pwd)/scratch gpgwrap --edit-key "${GPG_EMAIL}"
-
-# export the resulting stubby key
-GNUPGHOME=$(pwd)/scratch gpgwrap --export-secret-subkeys "${GPG_EMAIL}" > "${GPG_EMAIL}-blacktwo.gpg"
 
 pkill scdaemon
 pkill gpg-agent
@@ -241,22 +210,6 @@ rm -rf scratch
 
 # shred the previous exports
 shred "${GPG_EMAIL}-redone.asc"
-shred "${GPG_EMAIL}-redtwo.asc"
-
-# import the second key and grab everything in it
-mkdir scratch
-GNUPGHOME=$(pwd)/scratch gpgwrap --import "${GPG_EMAIL}-blacktwo.gpg"
-GNUPGHOME=$(pwd)/scratch gpgwrap --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << TRUST
-trust
-5
-y
-save
-TRUST
-
-pubkeys="0x$(GNUPGHOME=$(pwd)/scratch gpgwrap --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep ':e::::::' | cut -d: -f5)!"
-
-# now import the first key
-GNUPGHOME=$(pwd)/scratch gpgwrap --import "${GPG_EMAIL}-blackone.gpg"
 
 # and grab all the other keys
 for l in $(GNUPGHOME=$(pwd)/scratch gpgwrap --list-keys --with-colons|grep 'sub:u:'|cut -d: -f5,12 | grep -E '(a|s)$') ; do
@@ -267,8 +220,6 @@ GNUPGHOME=$(pwd)/scratch gpgwrap --export -a "${pubkeys}" > "${GPG_EMAIL}-upload
 
 # now assemble a legacy gpg keyring...
 mkdir one
-mkdir two
 ( cd one && gpgsplit ../"${GPG_EMAIL}-blackone.gpg" )
-( cd two && gpgsplit ../"${GPG_EMAIL}-blacktwo.gpg" )
-fdupes -dN one two
-cat one/* two/* > "${GPG_EMAIL}-gpg14.gpg"
+fdupes -dN one
+cat one/* > "${GPG_EMAIL}-gpg14.gpg"

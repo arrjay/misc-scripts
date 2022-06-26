@@ -194,20 +194,14 @@ skey=$(cardgpg --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n '
 skey=${skey:0:1}
 
 # now that we know which key is which, push to card. you will be prompted for the admin pin.
-printf '\nrun:\ntoggle\nkey %s\nkeytocard\n1\nsave\n\n' "${skey}"
-cardgpg --edit-key "${GPG_EMAIL}"
-#toggle
-#key ${skey}
-#keytocard
-#1
-#save
-#S2CARD
+printf '%s\n' 'toggle' "key ${skey}" 'keytocard' '1' 'save' '' | \
+ cardgpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}"
 
-printf '\nrun:\ntoggle\nkey %s\nkeytocard\n2\nsave\n\n' "${ekey}"
-cardgpg --edit-key "${GPG_EMAIL}"
+printf '%s\n' 'toggle' "key ${ekey}" 'keytocard' '2' 'save' '' | \
+ cardgpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}"
 
-printf '\nrun:\ntoggle\nkey %s\nkeytocard\n3\nsave\n\n' "${akey}"
-cardgpg --edit-key "${GPG_EMAIL}"
+printf '%s\n' 'toggle' "key ${akey}" 'keytocard' '3' 'save' '' | \
+cardgpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}"
 
 # export the resulting stubby key
 cardgpg --export-secret-subkeys "${GPG_EMAIL}" > "${GPG_EMAIL}-new_subkeys.gpg"

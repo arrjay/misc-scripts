@@ -78,7 +78,7 @@ default-preference-list SHA512 SHA384 SHA256 SHA224 AES256 AES192 AES CAST5 ZLIB
 weak-digest SHA1
 disable-cipher-algo 3DES
 s2k-cipher-algo AES256
-s2k-digest-algo SHA-512
+s2k-digest-algo SHA512
 s2k-count 65011712
 keyid-format none
 with-subkey-fingerprint

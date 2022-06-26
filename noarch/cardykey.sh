@@ -8,6 +8,23 @@ pkill gpg-agent
 gpgwrap () { command gpg "${@}" ; }
 type gpg2 > /dev/null 2>&1 && gpgwrap () { command gpg2 "${@}" ; }
 
+# set up a script-temp directory to clean up later
+sc_temp="$(mktemp -d)"
+export TMPDIR="${sc_temp}"
+
+_atexit () {
+  last="${?}"
+  [[ "${last}" -eq 0 ]] && {
+    case "${sc_temp}" in
+      /|/tmp) : ;;
+      *) rm -rf "${sc_temp}" ;;
+    esac
+  }
+  return "${last}"
+}
+
+trap _atexit EXIT
+
 # display name
 GPG_NAME="RJ Bergeron"
 # email
@@ -149,8 +166,8 @@ done
 loaded="${one} ${two}"
 
 # export the private keys to files
-gpgwrap --export-secret-subkeys -a "${one}" > ${GPG_EMAIL}-redone.asc
-gpgwrap --export-secret-subkeys -a "${two}" > ${GPG_EMAIL}-redtwo.asc
+gpgwrap --export-secret-subkeys -a "${one}" > "${GPG_EMAIL}-redone.asc"
+gpgwrap --export-secret-subkeys -a "${two}" > "${GPG_EMAIL}-redtwo.asc"
 
 rm -rf scratch
 mkdir scratch
@@ -188,7 +205,7 @@ printf '\nrun:\ntoggle\nkey %s\nkeytocard\n3\nsave\n\n' "${akey}"
 GNUPGHOME=$(pwd)/scratch gpgwrap --edit-key "${GPG_EMAIL}"
 
 # export the resulting stubby key
-GNUPGHOME=$(pwd)/scratch gpgwrap --export-secret-subkeys "${GPG_EMAIL}" > ${GPG_EMAIL}-blackone.gpg
+GNUPGHOME=$(pwd)/scratch gpgwrap --export-secret-subkeys "${GPG_EMAIL}" > "${GPG_EMAIL}-blackone.gpg"
 
 ekey=""
 akey=""
@@ -218,7 +235,7 @@ printf '\nrun:\ntoggle\nkey %s\nkeytocard\n3\nsave\n\n' "${akey}"
 GNUPGHOME=$(pwd)/scratch gpgwrap --edit-key "${GPG_EMAIL}"
 
 # export the resulting stubby key
-GNUPGHOME=$(pwd)/scratch gpgwrap --export-secret-subkeys "${GPG_EMAIL}" > ${GPG_EMAIL}-blacktwo.gpg
+GNUPGHOME=$(pwd)/scratch gpgwrap --export-secret-subkeys "${GPG_EMAIL}" > "${GPG_EMAIL}-blacktwo.gpg"
 
 pkill scdaemon
 pkill gpg-agent

@@ -176,6 +176,8 @@ my_gpg --export-secret-subkeys -a "${one[@]}" > "${sc_temp}/${GPG_EMAIL}-redone.
 # drive _another_ gpg to wire up the card.
 cardkeydir=$(mktemp -d)
 cardgpg () { GNUPGHOME="${cardkeydir}" gpgwrap "${@}" ; }
+# import the certifying key to _this_ gpg
+my_gpg --export-secret-keys -a "${certgrip}" | cardgpg --import
 # echo 'reader-port "Yubico Yubikey NEO OTP+U2F+CCID 01 00"' > scratch/scdaemon.conf
 cardgpg --import "${sc_temp}/${GPG_EMAIL}-redone.asc"
 cardgpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << TRUST

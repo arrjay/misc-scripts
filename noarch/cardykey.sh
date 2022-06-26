@@ -36,11 +36,6 @@ GPG_SUBKEY_EXPIRY="18m"
 #REVOKER="Revoker: 1:BA8571970E65816AFFB15FFEBFC06D3971AAB113 sensitive"
 REVOKER=""
 
-# subkey counts
-ENCRYPTION_SUBKEY_COUNT="2"
-AUTH_SUBKEY_COUNT="2"
-SIGNING_SUBKEY_COUNT="1"
-
 # option processing
 _ext_opts=""
 
@@ -51,16 +46,13 @@ selfhelp () {
   exit 0
 }
 
-while getopts "e:n:x:s:r:c:a:g:fh" _opt ; do
+while getopts "e:n:x:s:r:fh" _opt ; do
   case "${_opt}" in
     e) GPG_EMAIL="${OPTARG}" ;;
     n) GPG_NAME="${OPTARG}" ;;
     x) GPG_EXPIRY="${OPTARG}" ;;
     s) GPG_SUBKEY_EXPIRY="${OPTARG}" ;;
     r) REVOKER="${OPTARG}" ;;
-    c) ENCRYPTION_SUBKEY_COUNT="${OPTARG}" ;;
-    a) AUTH_SUBKEY_COUNT="${OPTARG}" ;;
-    g) SIGNING_SUBKEY_COUNT="${OPTARG}" ;;
     *) selfhelp ;;
   esac
 done
@@ -112,9 +104,8 @@ case $(gpgwrap --list-secret-keys --with-colons --with-fingerprint --with-finger
  ;;
 esac
 
-# create unexpired encryption subkeys
-while [ "$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "e::::::")" != "${ENCRYPTION_SUBKEY_COUNT}" ] ; do
-  my_gpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
+# create unexpired encryption subkeys for card
+my_gpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
 %no-ask-passphrase
 %no-protection
 addkey
@@ -123,11 +114,9 @@ rsa/e
 ${GPG_SUBKEY_EXPIRY}
 save
 SUBKEY_PARAMS
-done
 
 # ditto authentication
-while [ "$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "a::::::")" != "${AUTH_SUBKEY_COUNT}" ] ; do
-  my_gpg --expert --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
+my_gpg --expert --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
 %no-ask-passphrase
 %no-protection
 addkey
@@ -137,11 +126,9 @@ rsa/*
 ${GPG_SUBKEY_EXPIRY}
 save
 SUBKEY_PARAMS
-done
 
 # and signing
-while [ "$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | grep "sub:u:4096" | grep -c "s::::::")" != "${SIGNING_SUBKEY_COUNT}" ] ; do
-  my_gpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
+my_gpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
 %no-ask-passphrase
 %no-protection
 addkey
@@ -150,7 +137,6 @@ rsa/s
 ${GPG_SUBKEY_EXPIRY}
 save
 SUBKEY_PARAMS
-done
 
 # so, the theory here is we'll order subkeys and load by expiry - the first export contains the last to expire
 # and types s/e/a. the second blob contains the next e/a keys. the c key doesn't get exported until we backup the

@@ -105,6 +105,8 @@ case $(gpgwrap --list-secret-keys --with-colons --with-fingerprint --with-finger
  ;;
  1) # copy the master key to a scratch keychain
   gpgwrap --export-secret-keys "${GPG_EMAIL}" | my_gpg --import
+  printf '%s\n' "trust" "5" "y" "save" | \
+   my_gpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}"
  ;;
  *) # panic
   exit 1

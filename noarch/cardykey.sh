@@ -17,7 +17,10 @@ _atexit () {
   [[ "${last}" -eq 0 ]] && {
     case "${sc_temp}" in
       /|/tmp) : ;;
-      *) rm -rf "${sc_temp}" ;;
+      *)
+        find "${sc_temp}" -type f -exec shred {} \;
+        rm -rf "${sc_temp}"
+      ;;
     esac
   }
   return "${last}"
@@ -157,11 +160,11 @@ done
 # export the private keys to files
 my_gpg --export-secret-subkeys -a "${one[@]}" > "${GPG_EMAIL}-redone.asc"
 
-rm -rf scratch
-mkdir scratch
-echo 'reader-port "Yubico Yubikey NEO OTP+U2F+CCID 01 00"' > scratch/scdaemon.conf
-GNUPGHOME=$(pwd)/scratch gpgwrap --import "${GPG_EMAIL}-redone.asc"
-GNUPGHOME=$(pwd)/scratch gpgwrap --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << TRUST
+cardkeydir=$(mktemp -d)
+cardgpg () { GNUPGHOME="${cardkeydir}" gpgwrap "${@}" ; }
+# echo 'reader-port "Yubico Yubikey NEO OTP+U2F+CCID 01 00"' > scratch/scdaemon.conf
+cardgpg --import "${GPG_EMAIL}-redone.asc"
+cardgpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << TRUST
 trust
 5
 y
@@ -169,16 +172,16 @@ save
 TRUST
 
 # we need to actually get the order the subkeys were written in for card writing
-ekey=$(GNUPGHOME=$(pwd)/scratch gpgwrap --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':e::::::')
+ekey=$(cardgpg --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':e::::::')
 ekey=${ekey:0:1}
-akey=$(GNUPGHOME=$(pwd)/scratch gpgwrap --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':a::::::')
+akey=$(cardgpg --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':a::::::')
 akey=${akey:0:1}
-skey=$(GNUPGHOME=$(pwd)/scratch gpgwrap --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':s::::::')
+skey=$(cardgpg --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':s::::::')
 skey=${skey:0:1}
 
 # now that we know which key is which, push to card. you will be prompted for the admin pin.
 printf '\nrun:\ntoggle\nkey %s\nkeytocard\n1\nsave\n\n' "${skey}"
-GNUPGHOME=$(pwd)/scratch gpgwrap --edit-key "${GPG_EMAIL}"
+cardgpg --edit-key "${GPG_EMAIL}"
 #toggle
 #key ${skey}
 #keytocard
@@ -187,13 +190,13 @@ GNUPGHOME=$(pwd)/scratch gpgwrap --edit-key "${GPG_EMAIL}"
 #S2CARD
 
 printf '\nrun:\ntoggle\nkey %s\nkeytocard\n2\nsave\n\n' "${ekey}"
-GNUPGHOME=$(pwd)/scratch gpgwrap --edit-key "${GPG_EMAIL}"
+cardgpg --edit-key "${GPG_EMAIL}"
 
 printf '\nrun:\ntoggle\nkey %s\nkeytocard\n3\nsave\n\n' "${akey}"
-GNUPGHOME=$(pwd)/scratch gpgwrap --edit-key "${GPG_EMAIL}"
+cardgpg --edit-key "${GPG_EMAIL}"
 
 # export the resulting stubby key
-GNUPGHOME=$(pwd)/scratch gpgwrap --export-secret-subkeys "${GPG_EMAIL}" > "${GPG_EMAIL}-blackone.gpg"
+cardgpg --export-secret-subkeys "${GPG_EMAIL}" > "${GPG_EMAIL}-blackone.gpg"
 
 ekey=""
 akey=""
@@ -209,11 +212,11 @@ rm -rf scratch
 shred "${GPG_EMAIL}-redone.asc"
 
 # and grab all the other keys
-for l in $(GNUPGHOME=$(pwd)/scratch gpgwrap --list-keys --with-colons|grep 'sub:u:'|cut -d: -f5,12 | grep -E '(a|s)$') ; do
+for l in $(cardgpg --list-keys --with-colons|grep 'sub:u:'|cut -d: -f5,12 | grep -E '(a|s)$') ; do
   pubkeys="${pubkeys} 0x${l%:*}!"
 done
 
-GNUPGHOME=$(pwd)/scratch gpgwrap --export -a "${pubkeys}" > "${GPG_EMAIL}-upload.asc"
+cardgpg --export -a "${pubkeys}" > "${GPG_EMAIL}-upload.asc"
 
 # now assemble a legacy gpg keyring...
 mkdir one

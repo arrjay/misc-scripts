@@ -38,6 +38,7 @@ GPG_SUBKEY_EXPIRY="18m"
 # revocation
 #REVOKER="Revoker: 1:BA8571970E65816AFFB15FFEBFC06D3971AAB113 sensitive"
 REVOKER=""
+PASS_ITEM=""
 
 # option processing
 _ext_opts=""
@@ -56,6 +57,7 @@ while getopts "e:n:x:s:r:fh" _opt ; do
     x) GPG_EXPIRY="${OPTARG}" ;;
     s) GPG_SUBKEY_EXPIRY="${OPTARG}" ;;
     r) REVOKER="${OPTARG}" ;;
+    p) PASS_ITEM="${OPTARG}" ;;
     *) selfhelp ;;
   esac
 done
@@ -81,6 +83,24 @@ s2k-count 65011712
 keyid-format none
 with-subkey-fingerprint
 GPGCONF
+
+# check existing gpg chain for a revocation key if configured and grab the needed magic bits
+[[ -n "${REVOKER}" ]] && {
+  revgrip=$(gpgwrap --list-keys --with-colons --with-fingerprint "${REVOKER}" |\
+    awk -F: 'BEGIN { c=0 ; fx=0 ; } END { if (c==1) { print alg,fpr } } ($1 == "pub") { alg=$4 ; fx=1 ; c++ } ($1 == "fpr" && fx == 1) { fx=0 ; fpr=$10 ; }')
+  case "${revgrip}" in
+  *" "*)
+    gpgwrap --export "${REVOKER}" | my_gpg --import
+    printf '%s\n' "trust" "5" "y" "save" | \
+      my_gpg --edit-key --batch --command-fd 0 --passphrase '' "${REVOKER}"
+    REVOKER="${revgrip/ /:}"
+  ;;
+  *)
+    echo "couldn't sort out public key for ${REVOKER} - either missing or duplicates in main keyring" 1>&2
+    exit 1
+  ;;
+  esac
+}
 
 # check existing gpg chain for a master key with secret
 case $(gpgwrap --list-secret-keys --with-colons --with-fingerprint --with-fingerprint "${GPG_EMAIL}" | \

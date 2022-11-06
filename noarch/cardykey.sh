@@ -87,7 +87,7 @@ GPGCONF
 # check existing gpg chain for a revocation key if configured and grab the needed magic bits
 [[ -n "${REVOKER}" ]] && {
   revgrip=$(gpgwrap --list-keys --with-colons --with-fingerprint "${REVOKER}" |\
-    awk -F: 'BEGIN { c=0 ; fx=0 ; } END { if (c==1) { print alg,fpr } } ($1 == "pub") { alg=$4 ; fx=1 ; c++ } ($1 == "fpr" && fx == 1) { fx=0 ; fpr=$10 ; }')
+    awk -F: 'BEGIN { c=0 ; } END { if (c==1) { print alg,fpr } } ($1 == "pub") { alg=$4 ; fpr=$5 ; c++ }')
   case "${revgrip}" in
   *" "*)
     gpgwrap --export "${REVOKER}" | my_gpg --import

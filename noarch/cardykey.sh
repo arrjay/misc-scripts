@@ -36,6 +36,7 @@ GPG_SUBKEY_EXPIRY="18m"
 REVOKER=""
 PASS_ITEM=""
 LEGACY_SUBKEYING="false"
+SIGN_AS_AUTH2="false"
 
 # option processing
 _ext_opts=""
@@ -47,7 +48,7 @@ selfhelp () {
   exit 0
 }
 
-while getopts "e:n:x:s:r:p:Lfh" _opt ; do
+while getopts "e:n:x:s:r:p:Lfh2" _opt ; do
   case "${_opt}" in
     e) GPG_EMAIL="${OPTARG}" ;;
     n) GPG_NAME="${OPTARG}" ;;
@@ -56,9 +57,18 @@ while getopts "e:n:x:s:r:p:Lfh" _opt ; do
     r) REVOKER="${OPTARG}" ;;
     p) PASS_ITEM="${OPTARG}" ;;
     L) LEGACY_SUBKEYING="true" ;;
+    2) SIGN_AS_AUTH2="true" ;;
     *) selfhelp ;;
   esac
 done
+
+# SIGN_AS_AUTH2 and LEGACY_SUBKEYING are not compatible.
+case "${LEGACY_SUBKEYING}${SIGN_AS_AUTH2}" in
+  truetrue)
+    echo "Legacy Subkeying and Signature as Authentication are conflictng options, pick *one*" 1>&2
+    exit 1
+  ;;
+esac
 
 # track if we made a key or not (if we made a key, we should export the certifying element)
 _made_master=0
@@ -166,20 +176,27 @@ esac
    "${GPG_SUBKEY_EXPIRY}" \
    "save"
 } | my_gpg --expert --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}"
+# + printf '%s\n' %no-ask-passphrase %no-protection addkey 'rsa/*' =a 4096 18m save
 
-# and signing
+# and signing (or, alternate auth!)
 {
   printf '%s\n' \
    "%no-ask-passphrase" \
    "%no-protection" \
    "addkey"
-  case "${LEGACY_SUBKEYING}" in
-   true)
+  case "${LEGACY_SUBKEYING}${SIGN_AS_AUTH2}" in
+   truefalse)
     printf '%s\n' \
      "rsa/s" \
      "4096"
    ;;
-   *)
+   truetrue|falsetrue)
+    printf '%s\n' \
+     'rsa/*' \
+     "=a" \
+     "4096"
+   ;;
+   falsefalse)
     printf '%s\n' \
      "ecc/s" \
      "curve25519"
@@ -188,7 +205,7 @@ esac
   printf '%s\n' \
    "${GPG_SUBKEY_EXPIRY}" \
    "save"
-} | my_gpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}"
+} | my_gpg --expert --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}"
 
 # if we're using password store, dump *the entire key* there.
 [[ -n "${PASS_ITEM}" ]] && {
@@ -203,12 +220,11 @@ esac
 one=()  # reformed key handles for gpg export call
 
 for l in e s a ; do
-  one=(
-    "${one[@]}"
-    "0x$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | \
+  _scratch=""
+  _scratch="$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | \
      grep 'sub:u:[4096|255]' | grep "${l}:::::" | \
-     gawk -F: '{ key[$7]=$5 } END { asort(key) ; print key[1] }')!"
-  )
+     gawk -F: '{ key[$7]=$5 } END { asort(key) ; if (key[1]) { printf "0x%s!\n", key[1] } }')"
+  [[ -n "${_scratch}" ]] && one=( "${one[@]}" "${_scratch}" )
 done
 
 certgrip="0x$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | \
@@ -244,6 +260,8 @@ skey=$(cardgpg --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n '
 skey=${skey:0:1}
 
 # now that we know which key is which, push to card. you will be prompted for the admin pin.
+# unless it doesn't work, which on the older cards seems *way* flakier.
+# highly recommend you use the password store option and then poke at it by hand.
 printf '%s\n' 'toggle' "key ${skey}" 'keytocard' '1' 'save' '' | \
  cardgpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}"
 

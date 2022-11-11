@@ -35,6 +35,7 @@ GPG_SUBKEY_EXPIRY="18m"
 #REVOKER="Revoker: 1:BA8571970E65816AFFB15FFEBFC06D3971AAB113 sensitive"
 REVOKER=""
 PASS_ITEM=""
+LEGACY_SUBKEYING="false"
 
 # option processing
 _ext_opts=""
@@ -46,7 +47,7 @@ selfhelp () {
   exit 0
 }
 
-while getopts "e:n:x:s:r:p:fh" _opt ; do
+while getopts "e:n:x:s:r:p:Lfh" _opt ; do
   case "${_opt}" in
     e) GPG_EMAIL="${OPTARG}" ;;
     n) GPG_NAME="${OPTARG}" ;;
@@ -54,6 +55,7 @@ while getopts "e:n:x:s:r:p:fh" _opt ; do
     s) GPG_SUBKEY_EXPIRY="${OPTARG}" ;;
     r) REVOKER="${OPTARG}" ;;
     p) PASS_ITEM="${OPTARG}" ;;
+    L) LEGACY_SUBKEYING="true" ;;
     *) selfhelp ;;
   esac
 done
@@ -130,38 +132,41 @@ case $(gpgwrap --list-secret-keys --with-colons --with-fingerprint --with-finger
 esac
 
 # create unexpired encryption subkeys for card
-my_gpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
-%no-ask-passphrase
-%no-protection
-addkey
-ecc/e
-curve25519
-${GPG_SUBKEY_EXPIRY}
-save
-SUBKEY_PARAMS
+{
+  printf '%s\n' \
+   "%no-ask-passphrase" \
+   "%no-protection" \
+   "addkey" \
+   "ecc/e" \
+   "curve25519" \
+   "${GPG_SUBKEY_EXPIRY}" \
+   "save"
+} | my_gpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}"
 
 # ditto authentication - which _needs_ to be RSA for codecommit, sorry.
-my_gpg --expert --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
-%no-ask-passphrase
-%no-protection
-addkey
-rsa/*
-=a
-4096
-${GPG_SUBKEY_EXPIRY}
-save
-SUBKEY_PARAMS
+{
+  printf '%s\n' \
+   "%no-ask-passphrase" \
+   "%no-protection" \
+   "addkey" \
+   'rsa/*' \
+   "=a" \
+   "4096" \
+   "${GPG_SUBKEY_EXPIRY}" \
+   "save"
+} | my_gpg --expert --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}"
 
 # and signing
-my_gpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
-%no-ask-passphrase
-%no-protection
-addkey
-ecc/s
-curve25519
-${GPG_SUBKEY_EXPIRY}
-save
-SUBKEY_PARAMS
+{
+  printf '%s\n' \
+   "%no-ask-passphrase" \
+   "%no-protection" \
+   "addkey" \
+   "ecc/s" \
+   "curve25519" \
+   "${GPG_SUBKEY_EXPIRY}" \
+   "save"
+} | my_gpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}"
 
 # if we're using password store, dump *the entire key* there.
 [[ -n "${PASS_ITEM}" ]] && {

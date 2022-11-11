@@ -136,9 +136,15 @@ esac
   printf '%s\n' \
    "%no-ask-passphrase" \
    "%no-protection" \
-   "addkey" \
-   "ecc/e" \
-   "curve25519" \
+   "addkey"
+  case "${LEGACY_SUBKEYING}" in
+   *)
+    printf '%s\n' \
+     "ecc/e" \
+     "curve25519"
+   ;;
+  esac
+  printf '%s\n' \
    "${GPG_SUBKEY_EXPIRY}" \
    "save"
 } | my_gpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}"
@@ -161,9 +167,15 @@ esac
   printf '%s\n' \
    "%no-ask-passphrase" \
    "%no-protection" \
-   "addkey" \
-   "ecc/s" \
-   "curve25519" \
+   "addkey"
+  case "${LEGACY_SUBKEYING}" in
+   *)
+    printf '%s\n' \
+     "ecc/s" \
+     "curve25519"
+   ;;
+  esac
+  printf '%s\n' \
    "${GPG_SUBKEY_EXPIRY}" \
    "save"
 } | my_gpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}"

@@ -169,10 +169,21 @@ esac
   printf '%s\n' \
    "%no-ask-passphrase" \
    "%no-protection" \
-   "addkey" \
-   'rsa/*' \
-   "=a" \
-   "4096" \
+   "addkey"
+  case "${LEGACY_SUBKEYING}${SIGN_AS_AUTH2}" in
+   falsefalse|true*)
+    printf '%s\n' \
+     'rsa/*' \
+     "=a" \
+     "4096"
+   ;;
+   falsetrue)
+    printf '%s\n' \
+     'ecc/*' \
+     "=a" \
+     "curve25519"
+  esac
+  printf '%s\n' \
    "${GPG_SUBKEY_EXPIRY}" \
    "save"
 } | my_gpg --expert --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}"
@@ -223,9 +234,18 @@ for l in e s a ; do
   _scratch=""
   _scratch="$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | \
      grep 'sub:u:[4096|255]' | grep "${l}:::::" | \
-     gawk -F: '{ key[$7]=$5 } END { asort(key) ; if (key[1]) { printf "0x%s!\n", key[1] } }')"
+     gawk -F: '{ key[$7NR]=$5 } END { asort(key) ; if (key[1]) { printf "0x%s!\n", key[1] } }')"
   [[ -n "${_scratch}" ]] && one=( "${one[@]}" "${_scratch}" )
 done
+
+# if we have 2 authentication keys, we need to...find the other one.
+[[ "${SIGN_AS_AUTH2}" == "true" ]] && {
+  one=("${one[@]}"
+      "$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" \
+         grep 'sub:u:[4096|255]' | grep "a:::::" | \
+         gawk -F: '{ key[$7NR]=$5 } END { asort(key) ; if (key[2]) { printf "0x%s!\n", key[2] } }')"
+  )
+}
 
 certgrip="0x$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | \
            grep 'pub:u:[4096|255]' | \
@@ -258,6 +278,15 @@ akey=$(cardgpg --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n '
 akey=${akey:0:1}
 skey=$(cardgpg --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':s:::::')
 skey=${skey:0:1}
+
+# if we are using sign as auth2, we're going to prefer the rsa key as auth, and the ecc key
+# as sign - but they're both auth keys for gpg.
+[[ "${SIGN_AS_AUTH2}" == "true" ]] && {
+  akey=$(cardgpg --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':a::::::23:')
+  akey=${akey:0:1}
+  skey=$(cardgpg --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':a:::::ed25519::')
+  skey=${skey:0:1}
+}
 
 # now that we know which key is which, push to card. you will be prompted for the admin pin.
 # unless it doesn't work, which on the older cards seems *way* flakier.

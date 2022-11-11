@@ -138,6 +138,11 @@ esac
    "%no-protection" \
    "addkey"
   case "${LEGACY_SUBKEYING}" in
+   true)
+    printf '%s\n' \
+     "rsa/e" \
+     "4096"
+   ;;
    *)
     printf '%s\n' \
      "ecc/e" \
@@ -169,6 +174,11 @@ esac
    "%no-protection" \
    "addkey"
   case "${LEGACY_SUBKEYING}" in
+   true)
+    printf '%s\n' \
+     "rsa/s" \
+     "4096"
+   ;;
    *)
     printf '%s\n' \
      "ecc/s" \

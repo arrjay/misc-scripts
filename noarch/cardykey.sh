@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# shoot any scdaemons
-pkill scdaemon
-pkill gpg-agent
-
 # if I have a gpg2, prefer that.
 gpgwrap () { command gpg "${@}" ; }
 type gpg2 > /dev/null 2>&1 && gpgwrap () { command gpg2 "${@}" ; }
@@ -50,7 +46,7 @@ selfhelp () {
   exit 0
 }
 
-while getopts "e:n:x:s:r:fh" _opt ; do
+while getopts "e:n:x:s:r:p:fh" _opt ; do
   case "${_opt}" in
     e) GPG_EMAIL="${OPTARG}" ;;
     n) GPG_NAME="${OPTARG}" ;;
@@ -87,7 +83,7 @@ GPGCONF
 # check existing gpg chain for a revocation key if configured and grab the needed magic bits
 [[ -n "${REVOKER}" ]] && {
   revgrip=$(gpgwrap --list-keys --with-colons --with-fingerprint "${REVOKER}" |\
-    awk -F: 'BEGIN { c=0 ; } END { if (c==1) { print alg,fpr } } ($1 == "pub") { alg=$4 ; fpr=$5 ; c++ }')
+    awk -F: 'BEGIN { c=0 ; fx=0 ; } END { if (c==1) { print alg,fpr } } ($1 == "pub") { alg=$4 ; fx=1 ; c++ } ($1 == "fpr" && fx == 1) { fx=0 ; fpr=$10 ; }')
   case "${revgrip}" in
   *" "*)
     gpgwrap --export "${REVOKER}" | my_gpg --import
@@ -111,15 +107,15 @@ case $(gpgwrap --list-secret-keys --with-colons --with-fingerprint --with-finger
     printf '%s\n' \
      "%no-ask-passphrase" \
      "%no-protection" \
-     "Key-Type: rsa" \
-     "Key-Length: 4096" \
-     "Key-Usage: cert"
+     "Key-Type: eddsa" \
+     "Key-Curve: Ed25519" \
+     "Key-Usage: sign"
     printf 'Name-Real: %s\n' "${GPG_NAME}"
     printf 'Name-Email: %s\n' "${GPG_EMAIL}"
     printf 'Expire-Date: %s\n' "${GPG_EXPIRY}"
     printf 'Preferences: %s\n' \
      "SHA512 SHA384 SHA256 SHA224 AES256 AES192 AES CAST5 ZLIB BZIP2 ZIP Uncompressed"
-    [[ -n "${REVOKER}" ]] && printf 'Revoker: %s sensitive\n' "${REVOKER}"
+    [[ -n "${REVOKER}" ]] && printf 'Revoker: %s\n' "${REVOKER}"
   } | my_gpg --gen-key --batch
   _made_master=1
  ;;
@@ -138,13 +134,13 @@ my_gpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKE
 %no-ask-passphrase
 %no-protection
 addkey
-rsa/e
-4096
+ecc/e
+curve25519
 ${GPG_SUBKEY_EXPIRY}
 save
 SUBKEY_PARAMS
 
-# ditto authentication
+# ditto authentication - which _needs_ to be RSA for codecommit, sorry.
 my_gpg --expert --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKEY_PARAMS
 %no-ask-passphrase
 %no-protection
@@ -161,11 +157,16 @@ my_gpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}" << SUBKE
 %no-ask-passphrase
 %no-protection
 addkey
-rsa/s
-4096
+ecc/s
+curve25519
 ${GPG_SUBKEY_EXPIRY}
 save
 SUBKEY_PARAMS
+
+# if we're using password store, dump *the entire key* there.
+[[ -n "${PASS_ITEM}" ]] && {
+  my_gpg --export-secret-keys "${GPG_EMAIL}" | pass insert -m -f "${PASS_ITEM}"
+}
 
 # so, the theory here is we'll order subkeys and load by expiry - the first export contains the last to expire
 # and types s/e/a. the second blob contains the next e/a keys. the c key doesn't get exported until we backup the
@@ -178,13 +179,13 @@ for l in e s a ; do
   one=(
     "${one[@]}"
     "0x$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | \
-     grep "sub:u:4096" | grep "${l}::::::" | \
+     grep 'sub:u:[4096|255]' | grep "${l}:::::" | \
      gawk -F: '{ key[$7]=$5 } END { asort(key) ; print key[1] }')!"
   )
 done
 
 certgrip="0x$(my_gpg --list-keys --with-colons "${GPG_EMAIL}" | \
-           grep "pub:u:4096" | \
+           grep 'pub:u:[4096|255]' | \
            gawk -F: '{ print $5 }')!"
 
 # export the certifying key to a file in pwd if we made that.
@@ -208,11 +209,11 @@ save
 TRUST
 
 # we need to actually get the order the subkeys were written in for card writing
-ekey=$(cardgpg --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':e::::::')
+ekey=$(cardgpg --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':e:::::')
 ekey=${ekey:0:1}
-akey=$(cardgpg --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':a::::::')
+akey=$(cardgpg --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':a:::::')
 akey=${akey:0:1}
-skey=$(cardgpg --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':s::::::')
+skey=$(cardgpg --list-keys --with-colons 2>/dev/null | grep 'sub:u:' | grep -n ':s:::::')
 skey=${skey:0:1}
 
 # now that we know which key is which, push to card. you will be prompted for the admin pin.
@@ -223,16 +224,13 @@ printf '%s\n' 'toggle' "key ${ekey}" 'keytocard' '2' 'save' '' | \
  cardgpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}"
 
 printf '%s\n' 'toggle' "key ${akey}" 'keytocard' '3' 'save' '' | \
-cardgpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}"
+ cardgpg --edit-key --batch --command-fd 0 --passphrase '' "${GPG_EMAIL}"
 
 # export the resulting stubby key
 cardgpg --export-secret-subkeys "${GPG_EMAIL}" > "${GPG_EMAIL}-new_subkeys.gpg"
 
 ekey=""
 akey=""
-
-pkill scdaemon
-pkill gpg-agent
 
 pubkeys=()
 
@@ -243,14 +241,3 @@ done
 
 # export to pwd for upload-ability
 cardgpg --export -a "${pubkeys[@]}" > "${GPG_EMAIL}-upload.asc"
-
-# now assemble a legacy gpg keyring...
-# NOTE: I've...not tested if this still _works_.
-
-mkdir "${sc_temp}/one"
-resdir="$(pwd)"
-( cd "${sc_temp}/one" && gpgsplit "${resdir}/${GPG_EMAIL}-new_subkeys.gpg" )
-fdupes -dN "${sc_temp}/one"
-
-# concatenate the fixed parts back in for a gpg1.4-ish key.
-cat "${sc_temp}/one/"* > "${GPG_EMAIL}-gpg14.gpg"

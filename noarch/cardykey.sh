@@ -62,14 +62,6 @@ while getopts "e:n:x:s:r:p:Lfh2" _opt ; do
   esac
 done
 
-# SIGN_AS_AUTH2 and LEGACY_SUBKEYING are not compatible.
-case "${LEGACY_SUBKEYING}${SIGN_AS_AUTH2}" in
-  truetrue)
-    echo "Legacy Subkeying and Signature as Authentication are conflictng options, pick *one*" 1>&2
-    exit 1
-  ;;
-esac
-
 # track if we made a key or not (if we made a key, we should export the certifying element)
 _made_master=0
 

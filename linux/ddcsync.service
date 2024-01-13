@@ -1,0 +1,8 @@
+[Unit]
+Description=reconfigure monitor inputs for system
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+ExecStart=/usr/local/bin/ddcsync.sh
+Restart=no

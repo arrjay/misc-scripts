@@ -1,0 +1,5 @@
+ACTION!="add", GOTO="ddcsync_rules_end"
+SUBSYSTEM!="usb", GOTO="ddcsync_rules_end"
+# ID 04d9:0169 Holtek Semiconductor, Inc. Keyboard 
+ATTRS{idVendor}=="04d9",ATTRS{idProduct}=="0169",ENV{SYSTEMD_WANTS}+="ddcsync.service",TAG+="systemd"
+LABEL="ddcsync_rules_end"

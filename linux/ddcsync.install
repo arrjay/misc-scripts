@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+sudo install -m755 ddcsync.sh /usr/local/bin/ddcsync.sh
+sudo install -m644 ddcsync.service /etc/systemd/system/ddcsync.service
+sudo install -m644 ddcsync.rules /etc/udev/rules.d/ddcsync.rules

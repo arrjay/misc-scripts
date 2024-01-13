@@ -7,7 +7,7 @@ get_monitor_bus () {
   local line
   while read -r line ; do
   case "${line}" in
-    *"  ${model}") echo "${line%  *}" ;;
+    *"  ${model}") echo "${line%  *}" ; return 0 ;;
   esac
   done < <(awk '$1 == "I2C" { split($3,p,"-");b=p[2] } $1 == "Model:" { $1="";m=$0 } $1 == "VCP" { printf "%s %s\n",b,m }' < "${cache}")
 }
@@ -50,7 +50,7 @@ case "$(hostname)" in
   ;;
   u12345f5f858651*)
     populate_cache
-    do_monitor "DELL U3491W" 0x0f # DisplayPort-1
+    do_monitor "DELL U3419W" 0x0f # DisplayPort-1
     do_monitor "DELL U2715H" 0x0f # DisplayPort-1
   ;;
 esac
